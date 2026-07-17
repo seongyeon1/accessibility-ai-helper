@@ -21,42 +21,43 @@
       </p>
     </header>
 
-    <main class="workspace product-workspace">
-      <section class="input-pane intake-pane" aria-labelledby="input-title">
-        <div class="section-heading">
+    <main class="app-shell">
+      <section class="app-view intake-view is-active" id="intake-view" aria-labelledby="input-title">
+        <div class="intake-copy">
           <p class="kicker">분석 시작</p>
-          <h2 id="input-title">자료를 넣고 점검하세요</h2>
-          <p class="section-copy">URL은 서버가 직접 HTML을 가져오고 화면을 캡처합니다. 파일은 브라우저에서 읽어 서버 분석으로 보냅니다.</p>
+          <h2 id="input-title">무엇을 점검할까요?</h2>
+          <p class="section-copy">분석 대상을 고르고 버튼을 누르면 전용 결과 페이지로 이동합니다. URL은 화면 캡처와 HTML 분석을 함께 수행합니다.</p>
         </div>
 
-        <div class="mode-tabs" role="tablist" aria-label="입력 방식">
-          <button type="button" class="mode-tab is-active" data-mode="url">홈페이지 URL</button>
-          <button type="button" class="mode-tab" data-mode="file">파일 업로드</button>
-          <button type="button" class="mode-tab" data-mode="paste">직접 붙여넣기</button>
-        </div>
+        <section class="input-pane intake-card">
+          <div class="mode-tabs" role="tablist" aria-label="입력 방식">
+            <button type="button" class="mode-tab is-active" data-mode="url">홈페이지 URL</button>
+            <button type="button" class="mode-tab" data-mode="file">파일 업로드</button>
+            <button type="button" class="mode-tab" data-mode="paste">직접 붙여넣기</button>
+          </div>
 
-        <form id="checker-form">
-          <div class="mode-panel is-active" data-panel="url">
-            <label for="url-input">분석할 홈페이지 주소</label>
-            <div class="inline-control">
-              <input id="url-input" name="url" type="url" placeholder="https://example.go.kr/notice" autocomplete="url">
-              <button type="button" id="analyze-url">URL 분석</button>
+          <form id="checker-form">
+            <div class="mode-panel is-active" data-panel="url">
+              <label for="url-input">분석할 홈페이지 주소</label>
+              <div class="inline-control">
+                <input id="url-input" name="url" type="url" placeholder="https://example.go.kr/notice" autocomplete="url">
+                <button type="button" id="analyze-url">URL 분석</button>
+              </div>
             </div>
-          </div>
 
-          <div class="mode-panel" data-panel="file">
-            <label for="file-input">문서 또는 이미지 파일</label>
-            <input id="file-input" name="file" type="file" accept=".html,.htm,.txt,.md,.csv,.json,.xml,.pdf,.docx,.hwp,.hwpx,.png,.jpg,.jpeg,.webp,.gif,.svg">
-            <p class="hint">HTML·텍스트·일부 PDF 텍스트는 즉시 분석합니다. 이미지, HWP, DOCX, 스캔 PDF는 AI 분석 사용을 권장합니다.</p>
-            <button type="button" id="analyze-file">파일 분석</button>
-          </div>
+            <div class="mode-panel" data-panel="file">
+              <label for="file-input">문서 또는 이미지 파일</label>
+              <input id="file-input" name="file" type="file" accept=".html,.htm,.txt,.md,.csv,.json,.xml,.pdf,.docx,.hwp,.hwpx,.png,.jpg,.jpeg,.webp,.gif,.svg">
+              <p class="hint">HTML·텍스트·일부 PDF 텍스트는 즉시 분석합니다. 이미지, HWP, DOCX, 스캔 PDF는 AI 분석 사용을 권장합니다.</p>
+              <button type="button" id="analyze-file">파일 분석</button>
+            </div>
 
-          <div class="mode-panel" data-panel="paste">
-            <label for="text-input">안내문 텍스트</label>
-            <textarea id="text-input" name="text" rows="8">본 사업은 취약계층의 복지급여 신청 절차를 간소화하기 위하여 관계기관의 심사를 거쳐 지원대상자를 선정합니다. 주민등록등본 및 소득증빙자료를 첨부하여야 하며 기한 내 미제출 시 접수가 반려될 수 있습니다.</textarea>
+            <div class="mode-panel" data-panel="paste">
+              <label for="text-input">안내문 텍스트</label>
+              <textarea id="text-input" name="text" rows="8">본 사업은 취약계층의 복지급여 신청 절차를 간소화하기 위하여 관계기관의 심사를 거쳐 지원대상자를 선정합니다. 주민등록등본 및 소득증빙자료를 첨부하여야 하며 기한 내 미제출 시 접수가 반려될 수 있습니다.</textarea>
 
-            <label for="html-input">웹페이지 HTML 일부</label>
-            <textarea id="html-input" name="html" rows="7">&lt;main&gt;
+              <label for="html-input">웹페이지 HTML 일부</label>
+              <textarea id="html-input" name="html" rows="7">&lt;main&gt;
   &lt;h1&gt;복지 서비스 안내&lt;/h1&gt;
   &lt;h3&gt;신청 방법&lt;/h3&gt;
   &lt;img src="notice.png"&gt;
@@ -64,69 +65,111 @@
   &lt;input type="text"&gt;
 &lt;/main&gt;</textarea>
 
-            <fieldset class="color-grid">
-              <legend>색 대비</legend>
-              <label for="foreground-input">글자색</label>
-              <input id="foreground-input" name="foreground" type="color" value="#777777">
-              <label for="background-input">배경색</label>
-              <input id="background-input" name="background" type="color" value="#ffffff">
-            </fieldset>
+              <fieldset class="color-grid">
+                <legend>색 대비</legend>
+                <label for="foreground-input">글자색</label>
+                <input id="foreground-input" name="foreground" type="color" value="#777777">
+                <label for="background-input">배경색</label>
+                <input id="background-input" name="background" type="color" value="#ffffff">
+              </fieldset>
 
-            <div class="actions">
-              <button type="submit">붙여넣은 내용 분석</button>
-              <button type="button" class="secondary" id="reset-sample">샘플 복원</button>
+              <div class="actions">
+                <button type="submit">붙여넣은 내용 분석</button>
+                <button type="button" class="secondary" id="reset-sample">샘플 복원</button>
+              </div>
             </div>
-          </div>
-        </form>
+          </form>
 
-        <section class="auth-panel" aria-labelledby="auth-title">
-          <div>
-            <p class="kicker">AI 모델 연결</p>
-            <h2 id="auth-title">Codex/OpenAI 토큰</h2>
-          </div>
-          <label for="token-input">세션 토큰</label>
-          <input id="token-input" type="password" placeholder="비워두면 서버의 CODEX_AUTH_TOKEN 또는 OPENAI_API_KEY 사용">
-          <label for="model-input">모델</label>
-          <input id="model-input" type="text" value="gpt-5-mini">
-          <button type="button" class="secondary" id="run-ai-review">AI로 문서/이미지 심화 분석</button>
-          <p class="hint">토큰은 저장하지 않고 요청 헤더에만 사용합니다. 서버 환경변수 `CODEX_AUTH_TOKEN`도 지원합니다.</p>
+          <section class="auth-panel" aria-labelledby="auth-title">
+            <div>
+              <p class="kicker">AI 모델 연결</p>
+              <h2 id="auth-title">Codex/OpenAI 토큰</h2>
+            </div>
+            <label for="token-input">세션 토큰</label>
+            <input id="token-input" type="password" placeholder="비워두면 서버의 CODEX_AUTH_TOKEN 또는 OPENAI_API_KEY 사용">
+            <label for="model-input">모델</label>
+            <input id="model-input" type="text" value="gpt-5-mini">
+            <p class="hint">토큰은 저장하지 않고 요청 헤더에만 사용합니다. 결과 페이지에서도 AI 심화 분석을 실행할 수 있습니다.</p>
+          </section>
         </section>
       </section>
 
-      <section class="report-pane" aria-labelledby="report-title" aria-live="polite">
-        <div class="section-heading">
-          <p class="kicker">점검 결과</p>
-          <h2 id="report-title">문턱 점수와 개선 리포트</h2>
-          <p class="section-copy" id="source-meta">샘플 문서가 분석되어 있습니다.</p>
+      <section class="app-view loading-view" id="loading-view" aria-live="polite" aria-labelledby="loading-title">
+        <div class="loading-card">
+          <div class="loader" aria-hidden="true"></div>
+          <p class="kicker">분석 중</p>
+          <h2 id="loading-title">자료를 읽고 접근성 지도를 만드는 중입니다</h2>
+          <p id="loading-message">잠시만 기다려 주세요.</p>
+        </div>
+      </section>
+
+      <section class="app-view result-view" id="result-view" aria-labelledby="report-title">
+        <div class="result-toolbar">
+          <button type="button" class="secondary" id="back-to-input">다른 자료 분석</button>
+          <div>
+            <p class="kicker">점검 결과</p>
+            <h2 id="report-title">문턱 점수와 개선 리포트</h2>
+            <p class="section-copy" id="source-meta">분석 결과가 여기에 표시됩니다.</p>
+          </div>
         </div>
 
         <div class="status-line" id="status-line">대기 중</div>
 
-        <div class="screenshot-card" id="screenshot-card" hidden>
-          <div class="compare-card-header">
-            <h3>홈페이지 캡처</h3>
-            <span>서버 Chrome 렌더링</span>
+        <section class="result-grid">
+          <div class="score-board">
+            <div class="score-ring" id="score-ring" aria-label="문턱 점수">
+              <span id="score-value">0</span>
+              <small>점</small>
+            </div>
+            <div>
+              <p class="score-label" id="score-label">검사를 실행해 주세요</p>
+              <p class="score-help" id="score-help">점수가 낮을수록 정보 접근에 문턱이 높습니다.</p>
+            </div>
           </div>
-          <img id="screenshot-preview" alt="분석한 홈페이지 화면 캡처">
-        </div>
 
-        <div class="score-board">
-          <div class="score-ring" id="score-ring" aria-label="문턱 점수">
-            <span id="score-value">0</span>
-            <small>점</small>
-          </div>
-          <div>
-            <p class="score-label" id="score-label">검사를 실행해 주세요</p>
-            <p class="score-help" id="score-help">점수가 낮을수록 정보 접근에 문턱이 높습니다.</p>
-          </div>
-        </div>
+          <div class="summary-grid" id="summary-grid"></div>
+        </section>
 
-        <div class="summary-grid" id="summary-grid"></div>
+        <section class="visual-review" aria-labelledby="visual-title">
+          <div class="section-heading">
+            <p class="kicker">시각 점검</p>
+            <h2 id="visual-title">변화가 필요한 영역</h2>
+            <p class="section-copy">박스는 문제 유형을 기준으로 한 점검 위치입니다. 실제 화면 캡처가 있으면 캡처 위에, 없으면 구조 미리보기 위에 표시됩니다.</p>
+          </div>
+
+          <div class="visual-grid">
+            <article class="visual-stage-card">
+              <div class="compare-card-header">
+                <h3>원본 화면 영역</h3>
+                <span id="visual-source-label">하이라이트</span>
+              </div>
+              <div class="visual-stage" id="visual-stage">
+                <img id="screenshot-preview" alt="분석한 홈페이지 화면 캡처" hidden>
+                <div class="wire-preview" id="wire-preview" aria-hidden="true">
+                  <div class="wire-line wide"></div>
+                  <div class="wire-line"></div>
+                  <div class="wire-image"></div>
+                  <div class="wire-link"></div>
+                  <div class="wire-input"></div>
+                </div>
+                <div class="box-layer" id="box-layer"></div>
+              </div>
+            </article>
+
+            <article class="render-card">
+              <div class="compare-card-header">
+                <h3>개선 HTML 렌더링</h3>
+                <span>수정 후 미리보기</span>
+              </div>
+              <iframe id="html-render-preview" title="개선 HTML 렌더링 미리보기" sandbox=""></iframe>
+            </article>
+          </div>
+        </section>
 
         <section class="comparison-pane" id="comparison-panel" aria-labelledby="comparison-title">
           <div class="section-heading">
             <p class="kicker">개선안 비교</p>
-            <h2 id="comparison-title">더 쉬운 버전으로 바꿔 보기</h2>
+            <h2 id="comparison-title">바뀐 부분을 색으로 확인하기</h2>
             <p class="section-copy" id="comparison-meta">문턱 점수 0점 -> 0점</p>
           </div>
 
@@ -147,7 +190,7 @@
             <article class="compare-card improved">
               <div class="compare-card-header">
                 <h3>개선안</h3>
-                <span>자동 수정 초안</span>
+                <span>초록색은 변경된 부분</span>
               </div>
               <pre id="improved-preview"></pre>
             </article>
@@ -166,6 +209,10 @@
           </div>
           <pre id="ai-output"></pre>
         </section>
+
+        <div class="result-actions">
+          <button type="button" id="run-ai-review">AI로 문서/이미지 심화 분석</button>
+        </div>
 
         <div class="section-tabs" role="tablist" aria-label="리포트 필터">
           <button type="button" class="tab is-active" data-filter="all">전체</button>

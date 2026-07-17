@@ -1,4 +1,4 @@
-import { analyzeAll, createImprovementPlan } from './analyzer.js';
+import { analyzeAll, buildChangeHighlights, createImprovementPlan } from './analyzer.js';
 
 const sample = {
   text: '본 사업은 취약계층의 복지급여 신청 절차를 간소화하기 위하여 관계기관의 심사를 거쳐 지원대상자를 선정합니다. 주민등록등본 및 소득증빙자료를 첨부하여야 하며 기한 내 미제출 시 접수가 반려될 수 있습니다.',
@@ -16,6 +16,7 @@ const sample = {
 const state = {
   report: null,
   improvementPlan: null,
+  highlights: [],
   securityIssues: [],
   filter: 'all',
   source: {
@@ -29,6 +30,10 @@ const state = {
 };
 
 const form = document.querySelector('#checker-form');
+const intakeView = document.querySelector('#intake-view');
+const loadingView = document.querySelector('#loading-view');
+const resultView = document.querySelector('#result-view');
+const loadingMessage = document.querySelector('#loading-message');
 const urlInput = document.querySelector('#url-input');
 const fileInput = document.querySelector('#file-input');
 const textInput = document.querySelector('#text-input');
@@ -50,8 +55,11 @@ const originalPreview = document.querySelector('#original-preview');
 const improvedPreview = document.querySelector('#improved-preview');
 const comparisonMeta = document.querySelector('#comparison-meta');
 const changeList = document.querySelector('#change-list');
-const screenshotCard = document.querySelector('#screenshot-card');
 const screenshotPreview = document.querySelector('#screenshot-preview');
+const wirePreview = document.querySelector('#wire-preview');
+const boxLayer = document.querySelector('#box-layer');
+const visualSourceLabel = document.querySelector('#visual-source-label');
+const htmlRenderPreview = document.querySelector('#html-render-preview');
 const aiPanel = document.querySelector('#ai-panel');
 const aiOutput = document.querySelector('#ai-output');
 const aiModelLabel = document.querySelector('#ai-model-label');
@@ -59,25 +67,30 @@ const resetSample = document.querySelector('#reset-sample');
 const analyzeUrlButton = document.querySelector('#analyze-url');
 const analyzeFileButton = document.querySelector('#analyze-file');
 const runAiReviewButton = document.querySelector('#run-ai-review');
+const backToInputButton = document.querySelector('#back-to-input');
 const tabs = [...document.querySelectorAll('.tab')];
 const modeTabs = [...document.querySelectorAll('.mode-tab')];
 const modePanels = [...document.querySelectorAll('.mode-panel')];
 
 form.addEventListener('submit', (event) => {
   event.preventDefault();
-  runPasteAnalysis();
+  withStatus('붙여넣은 내용을 분석하고 개선안을 만드는 중입니다...', async () => {
+    await delay(350);
+    runPasteAnalysis();
+  });
 });
 
 analyzeUrlButton.addEventListener('click', analyzeUrl);
 analyzeFileButton.addEventListener('click', analyzeFile);
 runAiReviewButton.addEventListener('click', runAiReview);
+backToInputButton.addEventListener('click', () => showView('intake'));
 
 resetSample.addEventListener('click', () => {
   textInput.value = sample.text;
   htmlInput.value = sample.html;
   foregroundInput.value = sample.foreground;
   backgroundInput.value = sample.background;
-  runPasteAnalysis();
+  setStatus('샘플을 복원했습니다. 직접 붙여넣기 분석을 눌러 결과를 확인하세요.');
 });
 
 for (const tab of tabs) {
@@ -95,8 +108,6 @@ for (const tab of modeTabs) {
     for (const panel of modePanels) panel.classList.toggle('is-active', panel.dataset.panel === mode);
   });
 }
-
-runPasteAnalysis();
 
 function runPasteAnalysis() {
   const input = {
@@ -206,25 +217,35 @@ function applyAnalysis({ report, improvementPlan, securityIssues = [], screensho
   state.report = report;
   state.improvementPlan = improvementPlan;
   state.securityIssues = securityIssues;
+  state.highlights = buildChangeHighlights({
+    findings: [...report.findings, ...securityIssues],
+    changes: improvementPlan.changes
+  });
 
   sourceMeta.textContent = sourceLabel;
   renderScreenshot(screenshot);
   renderScore();
   renderSummaries();
+  renderVisualReview();
   renderComparison();
   renderFindings();
   setStatus('분석 완료');
+  showView('result');
 }
 
 function renderScreenshot(screenshot) {
   if (!screenshot) {
-    screenshotCard.hidden = true;
+    screenshotPreview.hidden = true;
+    wirePreview.hidden = false;
     screenshotPreview.removeAttribute('src');
+    visualSourceLabel.textContent = '구조 미리보기';
     return;
   }
 
-  screenshotCard.hidden = false;
+  screenshotPreview.hidden = false;
+  wirePreview.hidden = true;
   screenshotPreview.src = screenshot;
+  visualSourceLabel.textContent = '캡처 위 하이라이트';
 }
 
 function renderScore() {
@@ -279,7 +300,10 @@ function renderComparison() {
   const improvedText = [plan.improved.text, plan.improved.html].filter(Boolean).join('\n\n');
 
   originalPreview.textContent = originalText || '텍스트를 자동 추출하지 못했습니다. AI 심화 분석을 사용하세요.';
-  improvedPreview.textContent = improvedText || '자동 개선안이 없습니다. AI 심화 분석을 사용하세요.';
+  improvedPreview.innerHTML = renderHighlightedImprovement(
+    improvedText || '자동 개선안이 없습니다. AI 심화 분석을 사용하세요.',
+    plan.changes
+  );
   comparisonMeta.textContent = `문턱 점수 ${plan.before.score}점 -> ${plan.after.score}점`;
   comparisonPanel.style.setProperty('--before-score', `${plan.before.score}%`);
   comparisonPanel.style.setProperty('--after-score', `${plan.after.score}%`);
@@ -296,10 +320,38 @@ function renderComparison() {
     const title = document.createElement('strong');
     title.textContent = change.title;
     const detail = document.createElement('span');
-    detail.textContent = `${change.before} -> ${change.after}`;
+    detail.className = 'change-diff';
+    const before = document.createElement('span');
+    before.className = 'diff-before';
+    before.textContent = change.before;
+    const arrow = document.createElement('span');
+    arrow.className = 'diff-arrow';
+    arrow.textContent = '->';
+    const after = document.createElement('span');
+    after.className = 'diff-after';
+    after.textContent = change.after;
+    detail.append(before, arrow, after);
     item.append(title, detail);
     return item;
   }));
+}
+
+function renderVisualReview() {
+  boxLayer.replaceChildren(...state.highlights.map((highlight) => {
+    const box = document.createElement('button');
+    box.type = 'button';
+    box.className = `review-box ${highlight.severity}`;
+    box.style.left = `${highlight.box.x}%`;
+    box.style.top = `${highlight.box.y}%`;
+    box.style.width = `${highlight.box.width}%`;
+    box.style.height = `${highlight.box.height}%`;
+    box.setAttribute('aria-label', `${highlight.title}: ${highlight.reasons[0] || '변경 필요'}`);
+    box.innerHTML = `<span>${escapeHtml(highlight.title)}</span>`;
+    return box;
+  }));
+
+  const html = state.improvementPlan?.improved?.html || '';
+  htmlRenderPreview.srcdoc = buildRenderedHtmlPreview(html, state.highlights);
 }
 
 function renderFindings() {
@@ -358,9 +410,10 @@ function addDetail(list, term, value) {
 
 async function withStatus(message, task) {
   try {
-    setStatus(message);
+    showLoading(message);
     await task();
   } catch (error) {
+    showView('intake');
     setStatus(error.message || '처리 중 오류가 발생했습니다.', true);
   }
 }
@@ -410,6 +463,66 @@ function buildAiContextText() {
 function setStatus(message, isError = false) {
   statusLine.textContent = message;
   statusLine.classList.toggle('is-error', isError);
+}
+
+function delay(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function showView(name) {
+  intakeView.classList.toggle('is-active', name === 'intake');
+  loadingView.classList.toggle('is-active', name === 'loading');
+  resultView.classList.toggle('is-active', name === 'result');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function showLoading(message) {
+  loadingMessage.textContent = message;
+  showView('loading');
+}
+
+function renderHighlightedImprovement(text, changes) {
+  let html = escapeHtml(text);
+  const afterValues = changes
+    .map((change) => String(change.after || '').trim())
+    .filter((value) => value.length > 0)
+    .sort((a, b) => b.length - a.length);
+
+  for (const value of afterValues) {
+    const escaped = escapeHtml(value);
+    html = html.replaceAll(escaped, `<mark class="diff-mark">${escaped}</mark>`);
+  }
+  return html;
+}
+
+function buildRenderedHtmlPreview(html, highlights) {
+  const highlightCss = `
+    <style>
+      body { font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; padding: 18px; color: #172126; background: #fff; line-height: 1.55; }
+      img, h1, h2, h3, a, input, textarea, select { outline-offset: 4px; }
+      img { max-width: 100%; min-height: 48px; background: #eef5f1; }
+      h1, h2, h3 { outline: 3px solid rgba(31, 95, 139, .42); border-radius: 4px; }
+      img { outline: 3px solid rgba(18, 107, 87, .48); border-radius: 4px; }
+      a { outline: 3px solid rgba(244, 211, 94, .9); border-radius: 4px; }
+      input, textarea, select { outline: 3px solid rgba(184, 79, 39, .42); border-radius: 4px; }
+      .preview-note { margin-bottom: 12px; border-left: 4px solid #126b57; background: #f3faf7; padding: 10px 12px; font-weight: 700; }
+    </style>
+  `;
+  const note = highlights.length > 0
+    ? `<div class="preview-note">${highlights.length}개 영역을 기준으로 개선안을 렌더링했습니다.</div>`
+    : '<div class="preview-note">개선 HTML을 렌더링했습니다.</div>';
+  return `<!doctype html><html lang="ko"><head><meta charset="utf-8">${highlightCss}</head><body>${note}${html || '<p>렌더링할 HTML이 없습니다.</p>'}</body></html>`;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
 }
 
 function kindLabel(kind) {

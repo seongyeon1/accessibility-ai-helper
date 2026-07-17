@@ -219,6 +219,44 @@ export function createImprovementPlan({ text = '', html = '', foreground = '#111
   };
 }
 
+export function buildChangeHighlights({ findings = [], changes = [] } = {}) {
+  const buckets = new Map();
+
+  for (const finding of findings) {
+    const target = targetFromRule(finding.ruleId);
+    const current = buckets.get(target) || {
+      target,
+      title: titleFromTarget(target),
+      severity: finding.severity || 'medium',
+      reasons: [],
+      changes: [],
+      box: boxForTarget(target)
+    };
+    current.reasons.push(finding.title);
+    current.severity = strongestSeverity(current.severity, finding.severity);
+    buckets.set(target, current);
+  }
+
+  for (const change of changes) {
+    const target = targetFromChange(change);
+    const current = buckets.get(target) || {
+      target,
+      title: titleFromTarget(target),
+      severity: 'medium',
+      reasons: [],
+      changes: [],
+      box: boxForTarget(target)
+    };
+    current.changes.push(change);
+    buckets.set(target, current);
+  }
+
+  return [...buckets.values()].map((highlight, index) => ({
+    ...highlight,
+    id: `highlight-${highlight.target}-${index}`
+  }));
+}
+
 export function scoreFindings(findings = []) {
   const penalty = findings.reduce((total, finding) => {
     if (finding.severity === 'high') return total + 18;
@@ -227,6 +265,56 @@ export function scoreFindings(findings = []) {
   }, 0);
 
   return Math.max(0, 100 - penalty);
+}
+
+function targetFromRule(ruleId = '') {
+  if (ruleId.includes('image-alt')) return 'image';
+  if (ruleId.includes('heading')) return 'heading';
+  if (ruleId.includes('link')) return 'link';
+  if (ruleId.includes('control')) return 'form';
+  if (ruleId.includes('contrast')) return 'contrast';
+  return 'text';
+}
+
+function targetFromChange(change = {}) {
+  const title = `${change.type || ''} ${change.title || ''}`.toLowerCase();
+  const before = String(change.before || '').toLowerCase();
+  const after = String(change.after || '').toLowerCase();
+  if (title.includes('이미지') || before.includes('<img') || after.includes('<img')) return 'image';
+  if (title.includes('제목') || before.includes('<h') || after.includes('<h')) return 'heading';
+  if (title.includes('링크') || before.includes('<a') || after.includes('<a')) return 'link';
+  if (title.includes('입력') || before.includes('<input') || after.includes('<input') || after.includes('<label')) return 'form';
+  if (title.includes('대비') || title.includes('contrast')) return 'contrast';
+  return 'text';
+}
+
+function titleFromTarget(target) {
+  const titles = {
+    text: '본문 표현',
+    image: '이미지 설명',
+    heading: '제목 구조',
+    link: '링크 이름',
+    form: '입력 영역',
+    contrast: '색 대비'
+  };
+  return titles[target] || '검토 영역';
+}
+
+function boxForTarget(target) {
+  const boxes = {
+    text: { x: 7, y: 12, width: 86, height: 20 },
+    heading: { x: 8, y: 38, width: 62, height: 12 },
+    image: { x: 8, y: 55, width: 30, height: 20 },
+    link: { x: 43, y: 56, width: 38, height: 10 },
+    form: { x: 43, y: 71, width: 42, height: 12 },
+    contrast: { x: 6, y: 8, width: 88, height: 82 }
+  };
+  return boxes[target] || boxes.text;
+}
+
+function strongestSeverity(a = 'low', b = 'low') {
+  const rank = { low: 1, medium: 2, high: 3 };
+  return rank[b] > rank[a] ? b : a;
 }
 
 function improveText(text) {

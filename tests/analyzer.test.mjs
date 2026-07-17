@@ -5,6 +5,7 @@ import {
   analyzeAll,
   analyzeContrast,
   analyzeHtml,
+  buildChangeHighlights,
   analyzeText,
   createImprovementPlan,
   scoreFindings
@@ -91,4 +92,23 @@ test('createImprovementPlan rewrites difficult text and accessible HTML for comp
   assert.equal(plan.improved.foreground, '#111827');
   assert.ok(plan.after.score > plan.before.score);
   assert.ok(plan.changes.length >= 5);
+});
+
+test('buildChangeHighlights maps findings and changes into visual review targets', () => {
+  const plan = createImprovementPlan({
+    text: '지원대상자는 소득증빙자료를 첨부하여야 합니다.',
+    html: '<main><h1>복지 서비스 안내</h1><h3>신청 방법</h3><img src="notice.png"><a href="/apply">자세히</a><input id="name" type="text"></main>',
+    foreground: '#777777',
+    background: '#ffffff'
+  });
+  const highlights = buildChangeHighlights({
+    findings: plan.before.findings,
+    changes: plan.changes
+  });
+
+  assert.ok(highlights.some((highlight) => highlight.target === 'image'));
+  assert.ok(highlights.some((highlight) => highlight.target === 'heading'));
+  assert.ok(highlights.some((highlight) => highlight.target === 'link'));
+  assert.ok(highlights.some((highlight) => highlight.target === 'text'));
+  assert.ok(highlights.every((highlight) => Number.isFinite(highlight.box.x)));
 });
