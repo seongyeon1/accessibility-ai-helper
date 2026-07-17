@@ -76,7 +76,12 @@ npm start
 Claude Code 유료 구독이나 OAuth 로그인을 쓰고 싶다면 API key를 억지로 추출하지 말고 로컬 `claude` CLI를 사용하세요. 이 프로젝트의 `Claude Code CLI` Provider는 서버에서 `claude -p`를 실행해 이미 로그인된 Claude Code 세션을 사용합니다.
 
 ```bash
-claude /login
+claude
+```
+
+Claude Code가 열리면 브라우저 로그인을 진행하거나, 필요하면 대화형 입력창에서 `/login`을 실행합니다. 로그인이 끝나면 Claude Code를 종료하고 서버를 실행합니다.
+
+```bash
 npm start
 ```
 

@@ -250,7 +250,7 @@ async function handleClaudeCodeReview(request, response, body) {
       provider: 'claude-code',
       error: [
         'Claude Code CLI 실행에 실패했습니다.',
-        '`claude /login` 또는 `claude setup-token`으로 인증한 뒤 다시 시도하세요.',
+        '`claude` 대화형 세션에서 로그인하거나 `claude setup-token`으로 인증한 뒤 다시 시도하세요.',
         error.stderr || error.message
       ].filter(Boolean).join('\n')
     });
