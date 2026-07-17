@@ -114,12 +114,24 @@ h2 {
 }
 
 .input-pane,
-.report-pane {
+.report-pane,
+.comparison-pane {
   min-width: 0;
+}
+
+.comparison-pane {
+  margin: 18px 0;
+  border-top: 1px solid var(--line);
+  padding-top: 26px;
 }
 
 .section-heading {
   margin-bottom: 18px;
+}
+
+.section-copy {
+  margin: 8px 0 0;
+  color: var(--muted);
 }
 
 form {
@@ -270,6 +282,110 @@ button.secondary,
   margin-bottom: 16px;
 }
 
+.score-compare {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.score-compare .bar {
+  display: block;
+  height: 12px;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, var(--warning) var(--before-score, 0%), rgba(184, 79, 39, 0.16) var(--before-score, 0%));
+}
+
+.score-compare .after {
+  background:
+    linear-gradient(90deg, var(--civic-green) var(--after-score, 0%), rgba(18, 107, 87, 0.16) var(--after-score, 0%));
+}
+
+.comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.compare-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.compare-card.improved {
+  border-color: rgba(18, 107, 87, 0.42);
+  box-shadow: 0 16px 48px rgba(18, 107, 87, 0.12);
+}
+
+.compare-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.72);
+  padding: 12px 14px;
+}
+
+.compare-card-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.compare-card-header span {
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.compare-card pre {
+  min-height: 210px;
+  max-height: 360px;
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 16px;
+  color: var(--ink);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.93rem;
+  line-height: 1.65;
+}
+
+.change-board {
+  margin-top: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.82);
+  padding: 16px;
+}
+
+.change-board h3 {
+  margin: 0 0 10px;
+}
+
+.change-board ul {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.change-board li {
+  display: grid;
+  gap: 3px;
+  border-left: 4px solid var(--civic-green);
+  padding-left: 10px;
+}
+
+.change-board li span {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
 .summary-item {
   min-height: 108px;
   border: 1px solid var(--line);
@@ -368,6 +484,10 @@ button.secondary,
   }
 
   .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .comparison-grid {
     grid-template-columns: 1fr;
   }
 }

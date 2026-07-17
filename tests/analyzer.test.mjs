@@ -6,6 +6,7 @@ import {
   analyzeContrast,
   analyzeHtml,
   analyzeText,
+  createImprovementPlan,
   scoreFindings
 } from '../src/analyzer.js';
 
@@ -69,4 +70,25 @@ test('analyzeAll combines text, html, and contrast checks into one report', () =
   assert.equal(report.sections.length, 3);
   assert.ok(report.findings.length >= 3);
   assert.ok(report.score < 100);
+});
+
+test('createImprovementPlan rewrites difficult text and accessible HTML for comparison', () => {
+  const plan = createImprovementPlan({
+    text: '지원대상자는 소득증빙자료를 첨부하여야 합니다.',
+    html: '<main><h1>복지 서비스 안내</h1><h3>신청 방법</h3><img src="notice.png"><a href="/apply">자세히</a><input id="name" type="text"></main>',
+    foreground: '#777777',
+    background: '#ffffff'
+  });
+
+  assert.ok(plan.improved.text.includes('지원을 받을 사람'));
+  assert.ok(plan.improved.text.includes('소득을 확인하는 서류'));
+  assert.ok(!plan.improved.text.includes('사람를'));
+  assert.ok(!plan.improved.text.includes('줄임하기'));
+  assert.ok(plan.improved.html.includes('alt="복지 서비스 안내 관련 안내 이미지"'));
+  assert.ok(plan.improved.html.includes('<h2>신청 방법</h2>'));
+  assert.ok(plan.improved.html.includes('복지 서비스 안내 신청 방법 보기'));
+  assert.ok(plan.improved.html.includes('<label for="name">이름</label>'));
+  assert.equal(plan.improved.foreground, '#111827');
+  assert.ok(plan.after.score > plan.before.score);
+  assert.ok(plan.changes.length >= 5);
 });

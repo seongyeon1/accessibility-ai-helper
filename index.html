@@ -81,6 +81,42 @@
         </div>
 
         <div class="summary-grid" id="summary-grid"></div>
+        <section class="comparison-pane" id="comparison-panel" aria-labelledby="comparison-title">
+          <div class="section-heading">
+            <p class="kicker">개선안 비교</p>
+            <h2 id="comparison-title">더 쉬운 버전으로 바꿔 보기</h2>
+            <p class="section-copy" id="comparison-meta">문턱 점수 0점 -> 0점</p>
+          </div>
+
+          <div class="score-compare" aria-hidden="true">
+            <span class="bar before"></span>
+            <span class="bar after"></span>
+          </div>
+
+          <div class="comparison-grid">
+            <article class="compare-card">
+              <div class="compare-card-header">
+                <h3>원본</h3>
+                <span>붙여넣은 내용</span>
+              </div>
+              <pre id="original-preview"></pre>
+            </article>
+
+            <article class="compare-card improved">
+              <div class="compare-card-header">
+                <h3>개선안</h3>
+                <span>자동 수정 초안</span>
+              </div>
+              <pre id="improved-preview"></pre>
+            </article>
+          </div>
+
+          <div class="change-board">
+            <h3>바뀐 점</h3>
+            <ul id="change-list"></ul>
+          </div>
+        </section>
+
         <div class="findings" id="findings-list"></div>
       </section>
     </main>

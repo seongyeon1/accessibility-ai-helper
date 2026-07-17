@@ -1,4 +1,4 @@
-import { analyzeAll } from './analyzer.js';
+import { analyzeAll, createImprovementPlan } from './analyzer.js';
 
 const sample = {
   text: '본 사업은 취약계층의 복지급여 신청 절차를 간소화하기 위하여 관계기관의 심사를 거쳐 지원대상자를 선정합니다. 주민등록등본 및 소득증빙자료를 첨부하여야 하며 기한 내 미제출 시 접수가 반려될 수 있습니다.',
@@ -15,6 +15,7 @@ const sample = {
 
 const state = {
   report: null,
+  improvementPlan: null,
   filter: 'all'
 };
 
@@ -29,6 +30,11 @@ const scoreLabel = document.querySelector('#score-label');
 const scoreHelp = document.querySelector('#score-help');
 const summaryGrid = document.querySelector('#summary-grid');
 const findingsList = document.querySelector('#findings-list');
+const comparisonPanel = document.querySelector('#comparison-panel');
+const originalPreview = document.querySelector('#original-preview');
+const improvedPreview = document.querySelector('#improved-preview');
+const comparisonMeta = document.querySelector('#comparison-meta');
+const changeList = document.querySelector('#change-list');
 const resetSample = document.querySelector('#reset-sample');
 const tabs = [...document.querySelectorAll('.tab')];
 
@@ -56,16 +62,20 @@ for (const tab of tabs) {
 runAnalysis();
 
 function runAnalysis() {
-  state.report = analyzeAll({
+  const input = {
     text: textInput.value,
     html: htmlInput.value,
     foreground: foregroundInput.value,
     background: backgroundInput.value
-  });
+  };
+
+  state.report = analyzeAll(input);
+  state.improvementPlan = createImprovementPlan(input);
 
   renderScore();
   renderSummaries();
   renderFindings();
+  renderComparison();
 }
 
 function renderScore() {
@@ -118,6 +128,35 @@ function renderFindings() {
   }
 
   findingsList.replaceChildren(...filtered.map(renderFinding));
+}
+
+function renderComparison() {
+  const plan = state.improvementPlan;
+  const originalText = [textInput.value.trim(), htmlInput.value.trim()].filter(Boolean).join('\n\n');
+  const improvedText = [plan.improved.text, plan.improved.html].filter(Boolean).join('\n\n');
+
+  originalPreview.textContent = originalText || '비교할 원문이 없습니다.';
+  improvedPreview.textContent = improvedText || '개선안이 없습니다.';
+  comparisonMeta.textContent = `문턱 점수 ${plan.before.score}점 -> ${plan.after.score}점`;
+  comparisonPanel.style.setProperty('--before-score', `${plan.before.score}%`);
+  comparisonPanel.style.setProperty('--after-score', `${plan.after.score}%`);
+
+  if (plan.changes.length === 0) {
+    const item = document.createElement('li');
+    item.textContent = '자동 개선이 필요한 항목이 없습니다. 실제 사용자 검토를 함께 진행하세요.';
+    changeList.replaceChildren(item);
+    return;
+  }
+
+  changeList.replaceChildren(...plan.changes.map((change) => {
+    const item = document.createElement('li');
+    const title = document.createElement('strong');
+    title.textContent = change.title;
+    const detail = document.createElement('span');
+    detail.textContent = `${change.before} -> ${change.after}`;
+    item.append(title, detail);
+    return item;
+  }));
 }
 
 function renderFinding(finding) {

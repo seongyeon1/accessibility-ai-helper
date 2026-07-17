@@ -194,6 +194,31 @@ export function analyzeAll({ text = '', html = '', foreground = '#111827', backg
   };
 }
 
+export function createImprovementPlan({ text = '', html = '', foreground = '#111827', background = '#ffffff' } = {}) {
+  const before = analyzeAll({ text, html, foreground, background });
+  const textResult = improveText(text);
+  const htmlResult = improveHtml(html);
+  const contrastResult = improveContrast(foreground, background);
+  const improved = {
+    text: textResult.value,
+    html: htmlResult.value,
+    foreground: contrastResult.foreground,
+    background: contrastResult.background
+  };
+  const after = analyzeAll(improved);
+
+  return {
+    before,
+    after,
+    improved,
+    changes: [
+      ...textResult.changes,
+      ...htmlResult.changes,
+      ...contrastResult.changes
+    ]
+  };
+}
+
 export function scoreFindings(findings = []) {
   const penalty = findings.reduce((total, finding) => {
     if (finding.severity === 'high') return total + 18;
@@ -202,6 +227,191 @@ export function scoreFindings(findings = []) {
   }, 0);
 
   return Math.max(0, 100 - penalty);
+}
+
+function improveText(text) {
+  let value = text.trim();
+  const changes = [];
+
+  const phrasing = [
+    ['주민등록등본 및 소득증빙자료를 첨부하여야 하며 기한 내 미제출 시 접수가 반려될 수 있습니다', '주민등록 확인 서류와 소득을 확인하는 서류를 함께 내야 합니다. 기한 안에 내지 않으면 접수되지 않을 수 있습니다'],
+    ['신청 절차를 간소화하기 위하여', '신청 절차를 줄이기 위해'],
+    ['첨부하여야 하며', '함께 내야 합니다.'],
+    ['첨부하여야 합니다', '함께 내야 합니다'],
+    ['제출하여야 합니다', '제출해야 합니다'],
+    ['반려될 수 있습니다', '접수되지 않을 수 있습니다'],
+    ['선정합니다', '정합니다'],
+    ['거쳐', '받아']
+  ];
+
+  for (const [before, after] of phrasing) {
+    if (value.includes(before)) {
+      value = value.replaceAll(before, after);
+      changes.push({
+        type: 'text',
+        title: '행정 문체를 직접적인 표현으로 변경',
+        before,
+        after
+      });
+    }
+  }
+
+  for (const [term, replacement] of DIFFICULT_TERMS) {
+    if (value.includes(term)) {
+      value = value.replaceAll(term, replacement);
+      changes.push({
+        type: 'text',
+        title: `쉬운 표현으로 변경: ${term}`,
+        before: term,
+        after: replacement
+      });
+    }
+  }
+
+  value = smoothKoreanParticles(value);
+  value = splitLongText(value);
+
+  return { value, changes };
+}
+
+function improveHtml(html) {
+  let value = html.trim();
+  const changes = [];
+  const headingText = stripTags(value.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] ?? '안내문');
+
+  value = value.replace(/<img\b([^>]*?)>/gi, (tag, attributes) => {
+    const alt = getAttribute(tag, 'alt');
+    if (alt !== null && alt.trim() !== '') return tag;
+
+    changes.push({
+      type: 'html',
+      title: '이미지 대체 텍스트 추가',
+      before: tag,
+      after: `<img${attributes} alt="${headingText} 관련 안내 이미지">`
+    });
+    return `<img${attributes} alt="${headingText} 관련 안내 이미지">`;
+  });
+
+  value = normalizeHeadingSkips(value, changes);
+
+  value = value.replace(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi, (tag, attributes, content) => {
+    const label = stripTags(content).trim();
+    if (!VAGUE_LINK_TEXT.includes(label)) return tag;
+
+    const betterLabel = `${headingText} 신청 방법 보기`;
+    changes.push({
+      type: 'html',
+      title: '링크 이름을 구체적으로 변경',
+      before: label,
+      after: betterLabel
+    });
+    return `<a${attributes}>${betterLabel}</a>`;
+  });
+
+  value = value.replace(/<(input|textarea|select)\b([^>]*?)>/gi, (tag, elementName, attributes) => {
+    const type = (getAttribute(tag, 'type') ?? '').toLowerCase();
+    const id = getAttribute(tag, 'id');
+    const hasAccessibleName =
+      ['hidden', 'submit', 'button', 'reset'].includes(type) ||
+      Boolean(getAttribute(tag, 'aria-label')) ||
+      Boolean(getAttribute(tag, 'aria-labelledby')) ||
+      Boolean(getAttribute(tag, 'title')) ||
+      labelTargetsControl(value, id);
+
+    if (hasAccessibleName) return tag;
+
+    if (id) {
+      changes.push({
+        type: 'html',
+        title: '입력칸 라벨 추가',
+        before: tag,
+        after: `<label for="${id}">${guessControlLabel(id)}</label> ${tag}`
+      });
+      return `<label for="${id}">${guessControlLabel(id)}</label> ${tag}`;
+    }
+
+    changes.push({
+      type: 'html',
+      title: '입력칸 접근 이름 추가',
+      before: tag,
+      after: `<${elementName}${attributes} aria-label="입력 내용">`
+    });
+    return `<${elementName}${attributes} aria-label="입력 내용">`;
+  });
+
+  return { value, changes };
+}
+
+function improveContrast(foreground, background) {
+  if (analyzeContrast(foreground, background).passesAA) {
+    return { foreground, background, changes: [] };
+  }
+
+  return {
+    foreground: '#111827',
+    background,
+    changes: [{
+      type: 'contrast',
+      title: '본문 색 대비 개선',
+      before: foreground,
+      after: '#111827'
+    }]
+  };
+}
+
+function splitLongText(text) {
+  return splitSentences(text).map((sentence) => {
+    if (sentence.length < 50) return sentence;
+    return sentence
+      .replace(/ 합니다\.\s*/g, ' 합니다.\n')
+      .replace(/ 하며\s*/g, ' 합니다.\n')
+      .replace(/ 및 /g, '와 ');
+  }).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function smoothKoreanParticles(text) {
+  return text
+    .replaceAll('사람를', '사람을')
+    .replaceAll('사람는', '사람은')
+    .replaceAll('서류를 함께 내기하여야 합니다', '서류를 함께 내야 합니다')
+    .replaceAll('접수되지 않음될 수 있습니다', '접수되지 않을 수 있습니다')
+    .replaceAll('절차를 줄임하기', '절차를 줄이기');
+}
+
+function normalizeHeadingSkips(source, changes) {
+  let value = source;
+  const headingMatches = [...value.matchAll(/<h([1-6])\b([^>]*)>([\s\S]*?)<\/h\1>/gi)];
+  let previousLevel = null;
+
+  for (const match of headingMatches) {
+    const currentLevel = Number(match[1]);
+    if (previousLevel !== null && currentLevel - previousLevel > 1) {
+      const nextLevel = previousLevel + 1;
+      const before = match[0];
+      const after = `<h${nextLevel}${match[2]}>${match[3]}</h${nextLevel}>`;
+      value = value.replace(before, after);
+      changes.push({
+        type: 'html',
+        title: '제목 단계를 순서대로 정리',
+        before,
+        after
+      });
+      previousLevel = nextLevel;
+    } else {
+      previousLevel = currentLevel;
+    }
+  }
+
+  return value;
+}
+
+function guessControlLabel(id) {
+  const normalized = id.toLowerCase();
+  if (normalized.includes('name')) return '이름';
+  if (normalized.includes('phone') || normalized.includes('tel')) return '연락처';
+  if (normalized.includes('email')) return '이메일';
+  if (normalized.includes('address')) return '주소';
+  return '입력 내용';
 }
 
 function createFinding({ ruleId, title, severity, impact, location, evidence, suggestion }) {
