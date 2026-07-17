@@ -12,7 +12,7 @@
 - 홈페이지 URL을 서버에서 직접 가져와 HTML을 분석하고, 로컬 Chrome이 있으면 화면 캡처를 함께 제공합니다.
 - HTML, 텍스트, 일부 PDF 텍스트 파일을 업로드해 즉시 분석합니다.
 - 이미지, HWP, DOCX, 스캔 PDF는 AI 심화 분석 흐름으로 보낼 수 있습니다.
-- `CODEX_AUTH_TOKEN`, `OPENAI_API_KEY`, 또는 화면의 세션 토큰으로 OpenAI Responses API 분석을 호출할 수 있습니다.
+- OpenAI API, Anthropic API, Claude Code CLI 중 하나를 선택해 AI 심화 분석을 호출할 수 있습니다.
 
 ## 실행 방법
 
@@ -24,11 +24,11 @@ npm start
 
 브라우저에서 `http://127.0.0.1:4173`을 열면 됩니다.
 
-## AI 토큰 설정
+## AI Provider와 토큰 설정
 
-AI 심화 분석에는 OpenAI API 인증 토큰이 필요합니다. 일반적으로 직접 발급해서 사용하는 값은 `OPENAI_API_KEY`입니다.
+AI 심화 분석은 세 가지 방식 중 하나를 선택할 수 있습니다.
 
-### OpenAI API key 발급
+### 1. OpenAI API
 
 1. [OpenAI API keys](https://platform.openai.com/api-keys)에 접속합니다.
 2. OpenAI 계정으로 로그인합니다.
@@ -43,18 +43,58 @@ npm start
 
 OpenAI 공식 문서는 API key를 안전한 위치에 보관하고, 서버의 환경변수나 키 관리 시스템에서 불러오도록 안내합니다. 브라우저에 직접 노출되는 코드에는 API key를 넣지 마세요.
 
-### CODEX_AUTH_TOKEN은 어디서 받나요?
+### Codex 유료요금과 `CODEX_AUTH_TOKEN`
+
+Codex 유료요금은 Codex 앱, CLI, IDE 같은 Codex 클라이언트에서 사용하는 권한/사용량입니다. 이 웹앱의 Node 서버가 OpenAI Responses API를 직접 호출할 때는 보통 `OPENAI_API_KEY`가 필요합니다. Codex에 로그인되어 있어도 그 로그인 토큰이 로컬 웹앱 서버로 자동 전달되지는 않습니다.
 
 `CODEX_AUTH_TOKEN`은 별도의 공개 발급 페이지에서 사용자가 직접 만드는 토큰이 아닙니다. 이 프로젝트에서는 Codex나 자동화 실행 환경에서 이미 인증 토큰이 환경변수로 주입되어 있는 경우를 위해 호환용으로 지원합니다.
 
-대부분의 로컬 실행/배포 환경에서는 `CODEX_AUTH_TOKEN` 대신 `OPENAI_API_KEY`를 사용하세요. 만약 사용하는 Codex 환경에서 `CODEX_AUTH_TOKEN`이 이미 제공된다면 다음처럼 실행할 수 있습니다.
+대부분의 로컬 실행/배포 환경에서는 `CODEX_AUTH_TOKEN` 대신 `OPENAI_API_KEY`를 사용하세요. Enterprise 환경에서 Codex access token이 제공되는 경우에는 Codex CLI 로그인용으로 쓰는 토큰이며, 일반 OpenAI API 호출용 key와는 다릅니다.
 
 ```bash
 export CODEX_AUTH_TOKEN="your_token"
 npm start
 ```
 
-화면의 `세션 토큰` 입력칸에 임시로 토큰을 넣어 테스트할 수도 있습니다. 이 값은 브라우저 저장소에 저장하지 않고 요청 헤더로만 전송됩니다.
+화면의 `토큰 또는 API key` 입력칸에 임시로 토큰을 넣어 테스트할 수도 있습니다. 이 값은 브라우저 저장소에 저장하지 않고 요청 헤더로만 전송됩니다.
+
+### 2. Anthropic API
+
+Claude API를 직접 쓰려면 [Anthropic Console](https://console.anthropic.com/)에서 API key를 발급하고 `ANTHROPIC_API_KEY`로 설정합니다.
+
+```bash
+export AI_PROVIDER="anthropic"
+export ANTHROPIC_API_KEY="your_anthropic_api_key"
+export ANTHROPIC_MODEL="claude-sonnet-5"
+npm start
+```
+
+화면에서 Provider를 `Anthropic API`로 선택하면 서버의 `ANTHROPIC_API_KEY`를 사용합니다. 입력칸에 API key를 넣으면 해당 요청에만 헤더로 전달합니다.
+
+### 3. Claude Code CLI
+
+Claude Code 유료 구독이나 OAuth 로그인을 쓰고 싶다면 API key를 억지로 추출하지 말고 로컬 `claude` CLI를 사용하세요. 이 프로젝트의 `Claude Code CLI` Provider는 서버에서 `claude -p`를 실행해 이미 로그인된 Claude Code 세션을 사용합니다.
+
+```bash
+claude /login
+npm start
+```
+
+브라우저 로그인이 어려운 CI나 스크립트 환경에서는 Claude Code가 제공하는 토큰 설정 명령을 사용할 수 있습니다.
+
+```bash
+claude setup-token
+export CLAUDE_CODE_OAUTH_TOKEN="generated_token"
+npm start
+```
+
+그 다음 화면에서 Provider를 `Claude Code CLI`로 선택하고 AI 심화 분석을 누르면 됩니다. 이미 `claude` CLI가 로그인되어 있다면 토큰 입력칸은 비워둘 수 있습니다.
+
+주의할 점:
+
+- `ANTHROPIC_API_KEY`는 Anthropic API 직접 호출용입니다.
+- `CLAUDE_CODE_OAUTH_TOKEN`은 Claude Code CLI/스크립트 실행용입니다.
+- Claude Code의 로컬 로그인 파일이나 OS keychain에서 토큰을 강제로 읽어오는 방식은 안전하지 않으므로 지원하지 않습니다.
 
 ## 프로젝트 구조
 

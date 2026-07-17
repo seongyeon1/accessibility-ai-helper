@@ -114,15 +114,20 @@ export function summarizeSecurityIssues(html = '') {
   return issues;
 }
 
+export function buildReviewPrompt({ text = '', file = null } = {}) {
+  return [
+    '다음 자료를 사회적 약자 정보 접근성 관점에서 분석해 주세요.',
+    '한국어 쉬운 말, 웹 접근성, 문서 접근성, 개인정보/보안 취약점을 함께 봅니다.',
+    '반드시 JSON 형식으로 summary, improvements, risks, rewritten_text 필드를 반환하세요.',
+    file?.filename ? `\n첨부 파일: ${file.filename} (${file.mimeType || 'unknown'})` : '',
+    text ? `\n분석 텍스트:\n${text.slice(0, 30000)}` : ''
+  ].filter(Boolean).join('\n');
+}
+
 export function buildOpenAIReviewRequest({ model = 'gpt-5-mini', text = '', file = null, imageDataUrl = '' } = {}) {
   const content = [{
     type: 'input_text',
-    text: [
-      '다음 자료를 사회적 약자 정보 접근성 관점에서 분석해 주세요.',
-      '한국어 쉬운 말, 웹 접근성, 문서 접근성, 개인정보/보안 취약점을 함께 보고,',
-      '반드시 JSON 형식으로 summary, improvements, risks, rewritten_text 필드를 반환하세요.',
-      text ? `\n분석 텍스트:\n${text.slice(0, 30000)}` : ''
-    ].join('\n')
+    text: buildReviewPrompt({ text, file })
   }];
 
   if (file?.base64 && file?.filename) {
@@ -144,6 +149,34 @@ export function buildOpenAIReviewRequest({ model = 'gpt-5-mini', text = '', file
   return {
     model,
     input: [{
+      role: 'user',
+      content
+    }]
+  };
+}
+
+export function buildAnthropicReviewRequest({ model = 'claude-sonnet-5', text = '', file = null, imageDataUrl = '' } = {}) {
+  const content = [{
+    type: 'text',
+    text: buildReviewPrompt({ text, file })
+  }];
+
+  const image = imageDataUrl ? parseDataUrl(imageDataUrl) : null;
+  if (image && /^image\//i.test(image.mediaType)) {
+    content.push({
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: image.mediaType,
+        data: image.base64
+      }
+    });
+  }
+
+  return {
+    model,
+    max_tokens: 3000,
+    messages: [{
       role: 'user',
       content
     }]
@@ -197,6 +230,15 @@ function printableAsciiAndKorean(buffer) {
 
 function normalizeWhitespace(value) {
   return value.replace(/\s+/g, ' ').trim();
+}
+
+function parseDataUrl(value) {
+  const match = String(value).match(/^data:([^;,]+);base64,(.+)$/);
+  if (!match) return null;
+  return {
+    mediaType: match[1],
+    base64: match[2]
+  };
 }
 
 function hash(value) {

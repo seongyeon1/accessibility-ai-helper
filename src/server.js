@@ -8,7 +8,9 @@ import { promisify } from 'node:util';
 
 import { analyzeAll, createImprovementPlan } from './analyzer.js';
 import {
+  buildAnthropicReviewRequest,
   buildOpenAIReviewRequest,
+  buildReviewPrompt,
   detectDocumentKind,
   extractDocumentText,
   summarizeSecurityIssues
@@ -134,15 +136,33 @@ async function handleAnalyzeFile(request, response) {
 }
 
 async function handleAiReview(request, response) {
-  const token = getAuthToken(request);
+  const body = await readJsonBody(request);
+  const provider = normalizeProvider(body.provider || process.env.AI_PROVIDER || 'openai');
+
+  if (provider === 'claude-code') {
+    await handleClaudeCodeReview(request, response, body);
+    return;
+  }
+
+  const token = getProviderToken(request, provider);
   if (!token) {
     sendJson(response, 401, {
-      error: 'CODEX_AUTH_TOKEN, OPENAI_API_KEY, 또는 화면에서 입력한 세션 토큰이 필요합니다.'
+      error: provider === 'anthropic'
+        ? 'ANTHROPIC_API_KEY 또는 화면에서 입력한 Anthropic API key가 필요합니다.'
+        : 'CODEX_AUTH_TOKEN, OPENAI_API_KEY, 또는 화면에서 입력한 OpenAI 토큰이 필요합니다.'
     });
     return;
   }
 
-  const body = await readJsonBody(request);
+  if (provider === 'anthropic') {
+    await handleAnthropicReview(response, token, body);
+    return;
+  }
+
+  await handleOpenAIReview(response, token, body);
+}
+
+async function handleOpenAIReview(response, token, body) {
   const payload = buildOpenAIReviewRequest({
     model: body.model || process.env.OPENAI_MODEL || 'gpt-5-mini',
     text: body.text || '',
@@ -162,10 +182,79 @@ async function handleAiReview(request, response) {
   const result = await apiResponse.json();
   sendJson(response, apiResponse.status, {
     ok: apiResponse.ok,
+    provider: 'openai',
     model: payload.model,
     result,
     text: extractResponseText(result)
   });
+}
+
+async function handleAnthropicReview(response, token, body) {
+  const payload = buildAnthropicReviewRequest({
+    model: body.model || process.env.ANTHROPIC_MODEL || 'claude-sonnet-5',
+    text: body.text || '',
+    file: body.file || null,
+    imageDataUrl: body.imageDataUrl || ''
+  });
+
+  const apiResponse = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': token,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const result = await apiResponse.json();
+  sendJson(response, apiResponse.status, {
+    ok: apiResponse.ok,
+    provider: 'anthropic',
+    model: payload.model,
+    result,
+    text: extractAnthropicText(result)
+  });
+}
+
+async function handleClaudeCodeReview(request, response, body) {
+  const prompt = buildReviewPrompt({
+    text: body.text || '',
+    file: body.file || null
+  });
+  const token = String(request.headers['x-claude-code-oauth-token'] || process.env.CLAUDE_CODE_OAUTH_TOKEN || '').trim();
+  const env = { ...process.env };
+  if (token) env.CLAUDE_CODE_OAUTH_TOKEN = token;
+
+  try {
+    const { stdout, stderr } = await execFileAsync(
+      process.env.CLAUDE_CLI_PATH || 'claude',
+      ['-p', prompt],
+      {
+        timeout: Number(process.env.CLAUDE_CODE_TIMEOUT_MS || 120000),
+        maxBuffer: 2 * 1024 * 1024,
+        env
+      }
+    );
+
+    sendJson(response, 200, {
+      ok: true,
+      provider: 'claude-code',
+      model: 'claude-code-cli',
+      result: { stderr: stderr.trim() },
+      text: stdout.trim()
+    });
+  } catch (error) {
+    sendJson(response, 502, {
+      ok: false,
+      provider: 'claude-code',
+      error: [
+        'Claude Code CLI 실행에 실패했습니다.',
+        '`claude /login` 또는 `claude setup-token`으로 인증한 뒤 다시 시도하세요.',
+        error.stderr || error.message
+      ].filter(Boolean).join('\n')
+    });
+  }
 }
 
 async function serveStatic(pathname, response) {
@@ -228,9 +317,18 @@ function sendJson(response, status, payload) {
   response.end(JSON.stringify(payload));
 }
 
-function getAuthToken(request) {
+function normalizeProvider(provider) {
+  if (provider === 'anthropic' || provider === 'claude-code') return provider;
+  return 'openai';
+}
+
+function getProviderToken(request, provider) {
   const header = request.headers.authorization || '';
   if (header.toLowerCase().startsWith('bearer ')) return header.slice(7).trim();
+  if (provider === 'anthropic') {
+    if (request.headers['x-anthropic-api-key']) return String(request.headers['x-anthropic-api-key']);
+    return process.env.ANTHROPIC_API_KEY || '';
+  }
   if (request.headers['x-codex-auth-token']) return String(request.headers['x-codex-auth-token']);
   return process.env.CODEX_AUTH_TOKEN || process.env.OPENAI_API_KEY || '';
 }
@@ -247,5 +345,10 @@ function htmlToReadableText(html) {
 function extractResponseText(result) {
   if (typeof result.output_text === 'string') return result.output_text;
   const parts = result.output?.flatMap((item) => item.content || []) || [];
+  return parts.map((part) => part.text || '').filter(Boolean).join('\n');
+}
+
+function extractAnthropicText(result) {
+  const parts = result.content || [];
   return parts.map((part) => part.text || '').filter(Boolean).join('\n');
 }

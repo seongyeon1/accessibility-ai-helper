@@ -40,6 +40,7 @@ const textInput = document.querySelector('#text-input');
 const htmlInput = document.querySelector('#html-input');
 const foregroundInput = document.querySelector('#foreground-input');
 const backgroundInput = document.querySelector('#background-input');
+const providerInput = document.querySelector('#provider-input');
 const tokenInput = document.querySelector('#token-input');
 const modelInput = document.querySelector('#model-input');
 const scoreValue = document.querySelector('#score-value');
@@ -84,6 +85,7 @@ analyzeUrlButton.addEventListener('click', analyzeUrl);
 analyzeFileButton.addEventListener('click', analyzeFile);
 runAiReviewButton.addEventListener('click', runAiReview);
 backToInputButton.addEventListener('click', () => showView('intake'));
+providerInput.addEventListener('change', syncProviderDefaults);
 
 resetSample.addEventListener('click', () => {
   textInput.value = sample.text;
@@ -196,18 +198,23 @@ async function analyzeFile() {
 
 async function runAiReview() {
   await withStatus('AI 모델로 심화 분석하는 중입니다...', async () => {
+    const provider = providerInput.value;
     const headers = {};
-    if (tokenInput.value.trim()) headers['x-codex-auth-token'] = tokenInput.value.trim();
+    const token = tokenInput.value.trim();
+    if (token && provider === 'anthropic') headers['x-anthropic-api-key'] = token;
+    if (token && provider === 'claude-code') headers['x-claude-code-oauth-token'] = token;
+    if (token && provider === 'openai') headers['x-codex-auth-token'] = token;
 
     const result = await postJson('/api/ai-review', {
-      model: modelInput.value.trim() || 'gpt-5-mini',
+      provider,
+      model: modelInput.value.trim() || defaultModelForProvider(provider),
       text: buildAiContextText(),
       file: state.source.file,
       imageDataUrl: state.source.imageDataUrl
     }, headers);
 
     aiPanel.hidden = false;
-    aiModelLabel.textContent = result.model || '모델 응답';
+    aiModelLabel.textContent = `${providerLabel(result.provider || provider)} · ${result.model || '모델 응답'}`;
     aiOutput.textContent = result.text || JSON.stringify(result.result, null, 2);
     setStatus('AI 심화 분석이 완료됐습니다.');
   });
@@ -458,6 +465,28 @@ function buildAiContextText() {
     state.source.text ? `추출 텍스트:\n${state.source.text}` : '',
     state.source.html ? `HTML:\n${state.source.html.slice(0, 30000)}` : ''
   ].filter(Boolean).join('\n\n');
+}
+
+function syncProviderDefaults() {
+  const provider = providerInput.value;
+  modelInput.value = defaultModelForProvider(provider);
+  tokenInput.placeholder = provider === 'claude-code'
+    ? '로그인된 claude CLI를 쓰면 비워두세요. setup-token 값도 사용 가능'
+    : provider === 'anthropic'
+      ? '비워두면 서버의 ANTHROPIC_API_KEY 사용'
+      : '비워두면 서버의 CODEX_AUTH_TOKEN 또는 OPENAI_API_KEY 사용';
+}
+
+function defaultModelForProvider(provider) {
+  if (provider === 'anthropic') return 'claude-sonnet-5';
+  if (provider === 'claude-code') return 'claude-code-cli';
+  return 'gpt-5-mini';
+}
+
+function providerLabel(provider) {
+  if (provider === 'anthropic') return 'Anthropic API';
+  if (provider === 'claude-code') return 'Claude Code CLI';
+  return 'OpenAI API';
 }
 
 function setStatus(message, isError = false) {

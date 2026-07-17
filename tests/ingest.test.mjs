@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  buildAnthropicReviewRequest,
   buildOpenAIReviewRequest,
+  buildReviewPrompt,
   detectDocumentKind,
   extractDocumentText,
   summarizeSecurityIssues
@@ -53,4 +55,29 @@ test('buildOpenAIReviewRequest creates multimodal Responses API payload', () => 
   assert.ok(content.some((part) => part.type === 'input_text'));
   assert.ok(content.some((part) => part.type === 'input_file' && part.filename === 'notice.pdf'));
   assert.ok(content.some((part) => part.type === 'input_image'));
+});
+
+test('buildAnthropicReviewRequest creates Messages API image payload', () => {
+  const payload = buildAnthropicReviewRequest({
+    model: 'claude-sonnet-5',
+    text: '취약계층 복지급여 신청 안내',
+    imageDataUrl: 'data:image/png;base64,abc123'
+  });
+
+  const content = payload.messages[0].content;
+  assert.equal(payload.model, 'claude-sonnet-5');
+  assert.equal(payload.max_tokens, 3000);
+  assert.ok(content.some((part) => part.type === 'text'));
+  assert.ok(content.some((part) => part.type === 'image' && part.source.media_type === 'image/png'));
+});
+
+test('buildReviewPrompt includes required JSON fields and file context', () => {
+  const prompt = buildReviewPrompt({
+    text: '교육 신청 안내',
+    file: { filename: 'guide.hwp', mimeType: 'application/x-hwp' }
+  });
+
+  assert.match(prompt, /summary, improvements, risks, rewritten_text/);
+  assert.match(prompt, /guide\.hwp/);
+  assert.match(prompt, /교육 신청 안내/);
 });
