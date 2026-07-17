@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AI 접근성 도우미</title>
+    <link rel="stylesheet" href="./styles.css">
+    <script type="module" src="./src/app.js"></script>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand-lockup" aria-label="AI 접근성 도우미">
+        <span class="brand-mark" aria-hidden="true">A</span>
+        <div>
+          <p class="kicker">Inclusive civic checker</p>
+          <h1>AI 접근성 도우미</h1>
+        </div>
+      </div>
+      <p class="header-copy">
+        공공 안내문, 학교 공지, 복지 서비스 설명을 더 쉽게 읽히도록 점검합니다.
+      </p>
+    </header>
+
+    <main class="workspace">
+      <section class="input-pane" aria-labelledby="input-title">
+        <div class="section-heading">
+          <p class="kicker">검사 대상</p>
+          <h2 id="input-title">안내문과 HTML을 붙여넣으세요</h2>
+        </div>
+
+        <form id="checker-form">
+          <label for="text-input">안내문 텍스트</label>
+          <textarea id="text-input" name="text" rows="9">본 사업은 취약계층의 복지급여 신청 절차를 간소화하기 위하여 관계기관의 심사를 거쳐 지원대상자를 선정합니다. 주민등록등본 및 소득증빙자료를 첨부하여야 하며 기한 내 미제출 시 접수가 반려될 수 있습니다.</textarea>
+
+          <label for="html-input">웹페이지 HTML 일부</label>
+          <textarea id="html-input" name="html" rows="8">&lt;main&gt;
+  &lt;h1&gt;복지 서비스 안내&lt;/h1&gt;
+  &lt;h3&gt;신청 방법&lt;/h3&gt;
+  &lt;img src="notice.png"&gt;
+  &lt;a href="/apply"&gt;자세히&lt;/a&gt;
+  &lt;input type="text"&gt;
+&lt;/main&gt;</textarea>
+
+          <fieldset class="color-grid">
+            <legend>색 대비</legend>
+            <label for="foreground-input">글자색</label>
+            <input id="foreground-input" name="foreground" type="color" value="#777777">
+            <label for="background-input">배경색</label>
+            <input id="background-input" name="background" type="color" value="#ffffff">
+          </fieldset>
+
+          <div class="actions">
+            <button type="submit">접근성 점검</button>
+            <button type="button" class="secondary" id="reset-sample">샘플 복원</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="report-pane" aria-labelledby="report-title" aria-live="polite">
+        <div class="section-heading">
+          <p class="kicker">점검 결과</p>
+          <h2 id="report-title">문턱 점수와 개선 리포트</h2>
+        </div>
+
+        <div class="score-board">
+          <div class="score-ring" id="score-ring" aria-label="문턱 점수">
+            <span id="score-value">0</span>
+            <small>점</small>
+          </div>
+          <div>
+            <p class="score-label" id="score-label">검사를 실행해 주세요</p>
+            <p class="score-help" id="score-help">점수가 낮을수록 정보 접근에 문턱이 높습니다.</p>
+          </div>
+        </div>
+
+        <div class="section-tabs" role="tablist" aria-label="리포트 필터">
+          <button type="button" class="tab is-active" data-filter="all">전체</button>
+          <button type="button" class="tab" data-filter="high">높음</button>
+          <button type="button" class="tab" data-filter="medium">보통</button>
+          <button type="button" class="tab" data-filter="low">낮음</button>
+        </div>
+
+        <div class="summary-grid" id="summary-grid"></div>
+        <div class="findings" id="findings-list"></div>
+      </section>
+    </main>
+  </body>
+</html>
