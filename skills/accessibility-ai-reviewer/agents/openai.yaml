@@ -1,0 +1,8 @@
+interface:
+  display_name: "Accessibility AI Reviewer"
+  short_description: "접근성·쉬운말·보안 개선 리뷰"
+  brand_color: "#126B57"
+  default_prompt: "Use $accessibility-ai-reviewer to review this website or document and return concrete before/after accessibility improvements."
+
+policy:
+  allow_implicit_invocation: true

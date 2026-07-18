@@ -112,10 +112,27 @@ accessibility-ai-helper/
     app.js
     ingest.js
     server.js
+  skills/
+    accessibility-ai-reviewer/
+      SKILL.md
+      agents/openai.yaml
   tests/
     analyzer.test.mjs
     ingest.test.mjs
 ```
+
+## Codex/Claude Code Skill로 사용하기
+
+`skills/accessibility-ai-reviewer/SKILL.md`는 이 프로젝트의 접근성 분석 절차를 재사용 가능한 Skill 형태로 정리한 파일입니다.
+
+Codex에서 쓰려면 폴더째 복사합니다.
+
+```bash
+mkdir -p ~/.codex/skills
+cp -R skills/accessibility-ai-reviewer ~/.codex/skills/
+```
+
+Claude Code에서도 Skill을 지원하는 환경이라면 같은 폴더를 Claude Code의 skills 경로에 복사해 사용할 수 있습니다. 이후 “접근성 리뷰어 스킬로 이 홈페이지/문서를 분석해줘”처럼 요청하면 쉬운 말, 웹 접근성, 보안·개인정보 위험, 변경 전/후 개선안을 같은 형식으로 받을 수 있습니다.
 
 ## 향후 확장
 

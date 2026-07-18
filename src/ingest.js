@@ -118,7 +118,8 @@ export function buildReviewPrompt({ text = '', file = null } = {}) {
   return [
     '다음 자료를 사회적 약자 정보 접근성 관점에서 분석해 주세요.',
     '한국어 쉬운 말, 웹 접근성, 문서 접근성, 개인정보/보안 취약점을 함께 봅니다.',
-    '반드시 JSON 형식으로 summary, improvements, risks, rewritten_text 필드를 반환하세요.',
+    '반드시 JSON만 반환하세요. 마크다운 설명은 쓰지 마세요.',
+    '형식: {"summary":"한 문단 요약","improvements":[{"area":"바뀌어야 할 위치","reason":"문제가 되는 이유","before":"현재 표현 또는 요소","after":"개선 표현 또는 요소","change":"어떻게 바꾸는지"}],"risks":["남은 위험"],"rewritten_text":"사용자가 바로 붙여넣을 수 있는 개선 문안"}',
     file?.filename ? `\n첨부 파일: ${file.filename} (${file.mimeType || 'unknown'})` : '',
     text ? `\n분석 텍스트:\n${text.slice(0, 30000)}` : ''
   ].filter(Boolean).join('\n');

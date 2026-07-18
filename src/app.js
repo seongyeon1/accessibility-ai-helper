@@ -59,6 +59,7 @@ const changeList = document.querySelector('#change-list');
 const screenshotPreview = document.querySelector('#screenshot-preview');
 const wirePreview = document.querySelector('#wire-preview');
 const boxLayer = document.querySelector('#box-layer');
+const visualMapList = document.querySelector('#visual-map-list');
 const visualSourceLabel = document.querySelector('#visual-source-label');
 const htmlRenderPreview = document.querySelector('#html-render-preview');
 const aiPanel = document.querySelector('#ai-panel');
@@ -215,7 +216,7 @@ async function runAiReview() {
 
     aiPanel.hidden = false;
     aiModelLabel.textContent = `${providerLabel(result.provider || provider)} · ${result.model || '모델 응답'}`;
-    aiOutput.textContent = result.text || JSON.stringify(result.result, null, 2);
+    renderAiOutput(result.text || JSON.stringify(result.result, null, 2));
     setStatus('AI 심화 분석이 완료됐습니다.');
   });
 }
@@ -352,13 +353,64 @@ function renderVisualReview() {
     box.style.top = `${highlight.box.y}%`;
     box.style.width = `${highlight.box.width}%`;
     box.style.height = `${highlight.box.height}%`;
-    box.setAttribute('aria-label', `${highlight.title}: ${highlight.reasons[0] || '변경 필요'}`);
-    box.innerHTML = `<span>${escapeHtml(highlight.title)}</span>`;
+    box.dataset.highlightId = highlight.id;
+    box.setAttribute('aria-label', `${highlight.index}. ${highlight.title}: ${highlight.reasons[0] || '변경 필요'}`);
+    box.innerHTML = `<strong>${highlight.index}</strong><span>${escapeHtml(highlight.title)}</span>`;
+    box.addEventListener('click', () => focusHighlightCard(highlight.id));
     return box;
   }));
 
+  visualMapList.replaceChildren(...state.highlights.map(renderHighlightCard));
   const html = state.improvementPlan?.improved?.html || '';
   htmlRenderPreview.srcdoc = buildRenderedHtmlPreview(html, state.highlights);
+}
+
+function renderHighlightCard(highlight) {
+  const card = document.createElement('article');
+  card.className = `visual-map-card ${highlight.severity}`;
+  card.id = `card-${highlight.id}`;
+
+  const badge = document.createElement('span');
+  badge.className = 'map-number';
+  badge.textContent = highlight.index;
+
+  const body = document.createElement('div');
+  const title = document.createElement('strong');
+  title.textContent = highlight.title;
+
+  const reason = document.createElement('p');
+  reason.textContent = highlight.reasons[0] || '해당 영역에서 접근성 확인이 필요합니다.';
+
+  const detail = document.createElement('dl');
+  addDetail(detail, '왜', summarizeReasons(highlight.reasons));
+  addDetail(detail, '어떻게', summarizeHighlightChange(highlight));
+
+  body.append(title, reason, detail);
+  card.append(badge, body);
+  return card;
+}
+
+function focusHighlightCard(id) {
+  const card = document.querySelector(`#card-${CSS.escape(id)}`);
+  if (!card) return;
+  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  card.classList.add('is-focused');
+  setTimeout(() => card.classList.remove('is-focused'), 1200);
+}
+
+function summarizeHighlightChange(highlight) {
+  const change = highlight.changes?.[0];
+  if (change?.after) return change.after;
+  if (highlight.target === 'contrast') return '색 대비를 4.5:1 이상으로 조정합니다.';
+  if (highlight.target === 'text') return '긴 문장과 행정 용어를 쉬운 문장으로 나눕니다.';
+  return '요소에 접근 가능한 이름과 의미를 추가합니다.';
+}
+
+function summarizeReasons(reasons = []) {
+  if (reasons.length === 0) return '자동 개선 대상입니다.';
+  const unique = [...new Set(reasons)];
+  if (unique.length <= 2) return unique.join(', ');
+  return `${unique.slice(0, 2).join(', ')} 외 ${unique.length - 2}개`;
 }
 
 function renderFindings() {
@@ -403,6 +455,115 @@ function renderFinding(finding) {
 
   article.append(header, details);
   return article;
+}
+
+function renderAiOutput(rawText) {
+  const parsed = parseAiJson(rawText);
+  if (!parsed) {
+    aiOutput.replaceChildren(renderPlainAiText(rawText));
+    return;
+  }
+
+  const sections = [];
+  if (parsed.summary) sections.push(renderAiSection('요약', parsed.summary));
+  sections.push(renderAiImprovementSection(parsed.improvements || parsed.changes || []));
+  if (parsed.risks) sections.push(renderAiSection('주의할 점', parsed.risks));
+  if (parsed.rewritten_text) sections.push(renderAiSection('다시 쓴 내용', parsed.rewritten_text, 'rewritten'));
+  aiOutput.replaceChildren(...sections.filter(Boolean));
+}
+
+function renderAiImprovementSection(items) {
+  const section = document.createElement('section');
+  section.className = 'ai-section';
+  const title = document.createElement('h4');
+  title.textContent = '개선 항목';
+  section.append(title);
+
+  const list = Array.isArray(items) ? items : [items].filter(Boolean);
+  if (list.length === 0) {
+    const empty = document.createElement('p');
+    empty.textContent = 'AI가 별도 개선 항목을 구조화해서 반환하지 않았습니다.';
+    section.append(empty);
+    return section;
+  }
+
+  const grid = document.createElement('div');
+  grid.className = 'ai-improvement-grid';
+  grid.replaceChildren(...list.map((item, index) => renderAiImprovementCard(item, index + 1)));
+  section.append(grid);
+  return section;
+}
+
+function renderAiImprovementCard(item, index) {
+  const card = document.createElement('article');
+  card.className = 'ai-improvement-card';
+  const title = document.createElement('strong');
+  title.textContent = `${index}. ${item.area || item.title || item.where || '검토 항목'}`;
+  const details = document.createElement('dl');
+  addDetail(details, '어디', item.area || item.where || item.location || '-');
+  addDetail(details, '왜', item.reason || item.why || item.issue || String(item));
+  addDetail(details, '어떻게', item.change || item.how || item.suggestion || item.after || '-');
+  if (item.before || item.after) {
+    addDetail(details, '전/후', [item.before, item.after].filter(Boolean).join(' -> '));
+  }
+  card.append(title, details);
+  return card;
+}
+
+function renderAiSection(titleText, value, variant = '') {
+  const section = document.createElement('section');
+  section.className = `ai-section ${variant}`;
+  const title = document.createElement('h4');
+  title.textContent = titleText;
+  section.append(title);
+
+  if (Array.isArray(value)) {
+    const list = document.createElement('ul');
+    list.replaceChildren(...value.map((item) => {
+      const li = document.createElement('li');
+      li.textContent = typeof item === 'string' ? item : JSON.stringify(item);
+      return li;
+    }));
+    section.append(list);
+  } else {
+    const text = document.createElement('p');
+    text.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+    section.append(text);
+  }
+  return section;
+}
+
+function renderPlainAiText(rawText) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'ai-section';
+  const title = document.createElement('h4');
+  title.textContent = 'AI 응답';
+  wrapper.append(title);
+
+  for (const block of String(rawText || '').split(/\n{2,}/).filter(Boolean)) {
+    const paragraph = document.createElement('p');
+    paragraph.textContent = block.trim();
+    wrapper.append(paragraph);
+  }
+  return wrapper;
+}
+
+function parseAiJson(rawText) {
+  const text = String(rawText || '').trim();
+  const candidates = [
+    text,
+    text.match(/```(?:json)?\s*([\s\S]*?)```/)?.[1],
+    text.match(/\{[\s\S]*\}/)?.[0]
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      continue;
+    }
+  }
+  return null;
 }
 
 function addDetail(list, term, value) {

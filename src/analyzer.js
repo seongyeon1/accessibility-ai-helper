@@ -253,6 +253,8 @@ export function buildChangeHighlights({ findings = [], changes = [] } = {}) {
 
   return [...buckets.values()].map((highlight, index) => ({
     ...highlight,
+    index: String(index + 1),
+    summary: summarizeHighlight(highlight),
     id: `highlight-${highlight.target}-${index}`
   }));
 }
@@ -307,7 +309,7 @@ function boxForTarget(target) {
     image: { x: 8, y: 55, width: 30, height: 20 },
     link: { x: 43, y: 56, width: 38, height: 10 },
     form: { x: 43, y: 71, width: 42, height: 12 },
-    contrast: { x: 6, y: 8, width: 88, height: 82 }
+    contrast: { x: 68, y: 8, width: 24, height: 14 }
   };
   return boxes[target] || boxes.text;
 }
@@ -315,6 +317,12 @@ function boxForTarget(target) {
 function strongestSeverity(a = 'low', b = 'low') {
   const rank = { low: 1, medium: 2, high: 3 };
   return rank[b] > rank[a] ? b : a;
+}
+
+function summarizeHighlight(highlight) {
+  const firstChange = highlight.changes?.[0];
+  if (firstChange) return `${firstChange.before || highlight.title} -> ${firstChange.after}`;
+  return highlight.reasons?.[0] || '접근성 개선이 필요한 영역입니다.';
 }
 
 function improveText(text) {

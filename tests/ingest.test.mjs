@@ -77,7 +77,10 @@ test('buildReviewPrompt includes required JSON fields and file context', () => {
     file: { filename: 'guide.hwp', mimeType: 'application/x-hwp' }
   });
 
-  assert.match(prompt, /summary, improvements, risks, rewritten_text/);
+  assert.match(prompt, /"summary"/);
+  assert.match(prompt, /"improvements"/);
+  assert.match(prompt, /"risks"/);
+  assert.match(prompt, /"rewritten_text"/);
   assert.match(prompt, /guide\.hwp/);
   assert.match(prompt, /교육 신청 안내/);
 });
