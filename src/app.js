@@ -50,6 +50,7 @@ const scoreHelp = document.querySelector('#score-help');
 const sourceMeta = document.querySelector('#source-meta');
 const statusLine = document.querySelector('#status-line');
 const summaryGrid = document.querySelector('#summary-grid');
+const universalGrid = document.querySelector('#universal-grid');
 const findingsList = document.querySelector('#findings-list');
 const comparisonPanel = document.querySelector('#comparison-panel');
 const originalPreview = document.querySelector('#original-preview');
@@ -234,6 +235,7 @@ function applyAnalysis({ report, improvementPlan, securityIssues = [], screensho
   renderScreenshot(screenshot);
   renderScore();
   renderSummaries();
+  renderUniversalDesign();
   renderVisualReview();
   renderComparison();
   renderFindings();
@@ -299,6 +301,47 @@ function renderSummaries() {
 
     item.append(title, text);
     return item;
+  }));
+}
+
+function renderUniversalDesign() {
+  const principles = state.report.universalDesign || [];
+  universalGrid.replaceChildren(...principles.map((principle) => {
+    const card = document.createElement('article');
+    card.className = `universal-card ${principle.status}`;
+
+    const header = document.createElement('div');
+    header.className = 'universal-card-header';
+    const title = document.createElement('strong');
+    title.textContent = principle.label;
+    const badge = document.createElement('span');
+    badge.textContent = universalStatusLabel(principle.status);
+    header.append(title, badge);
+
+    const source = document.createElement('p');
+    source.className = 'universal-source';
+    source.textContent = principle.source;
+
+    const summary = document.createElement('p');
+    summary.textContent = principle.summary;
+
+    const action = document.createElement('p');
+    action.className = 'universal-action';
+    action.textContent = principle.recommendation;
+
+    if (principle.evidence?.length) {
+      const evidence = document.createElement('ul');
+      evidence.replaceChildren(...principle.evidence.map((item) => {
+        const li = document.createElement('li');
+        li.textContent = item;
+        return li;
+      }));
+      card.append(header, source, summary, evidence, action);
+      return card;
+    }
+
+    card.append(header, source, summary, action);
+    return card;
   }));
 }
 
@@ -467,9 +510,35 @@ function renderAiOutput(rawText) {
   const sections = [];
   if (parsed.summary) sections.push(renderAiSection('요약', parsed.summary));
   sections.push(renderAiImprovementSection(parsed.improvements || parsed.changes || []));
+  if (parsed.universal_design) sections.push(renderAiUniversalSection(parsed.universal_design));
   if (parsed.risks) sections.push(renderAiSection('주의할 점', parsed.risks));
   if (parsed.rewritten_text) sections.push(renderAiSection('다시 쓴 내용', parsed.rewritten_text, 'rewritten'));
   aiOutput.replaceChildren(...sections.filter(Boolean));
+}
+
+function renderAiUniversalSection(items) {
+  const list = Array.isArray(items) ? items : [items].filter(Boolean);
+  const section = document.createElement('section');
+  section.className = 'ai-section';
+  const title = document.createElement('h4');
+  title.textContent = '유니버설디자인 관점';
+  section.append(title);
+
+  const grid = document.createElement('div');
+  grid.className = 'ai-improvement-grid';
+  grid.replaceChildren(...list.map((item) => {
+    const card = document.createElement('article');
+    card.className = 'ai-improvement-card';
+    const name = document.createElement('strong');
+    name.textContent = `${item.principle || item.label || '원칙'} · ${item.status || '검토'}`;
+    const details = document.createElement('dl');
+    addDetail(details, '왜', item.reason || item.issue || '-');
+    addDetail(details, '조치', item.action || item.suggestion || '-');
+    card.append(name, details);
+    return card;
+  }));
+  section.append(grid);
+  return section;
 }
 
 function renderAiImprovementSection(items) {
@@ -733,6 +802,12 @@ function severityLabel(severity) {
   if (severity === 'high') return '높음';
   if (severity === 'medium') return '보통';
   return '낮음';
+}
+
+function universalStatusLabel(status) {
+  if (status === 'needs-work') return '개선 필요';
+  if (status === 'watch') return '주의';
+  return '양호';
 }
 
 function scoreColor(score) {

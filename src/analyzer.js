@@ -15,6 +15,65 @@ const DIFFICULT_TERMS = [
 
 const VAGUE_LINK_TEXT = ['자세히', '클릭', '여기', '바로가기', '더보기'];
 
+const UNIVERSAL_DESIGN_PRINCIPLES = [
+  {
+    id: 'equitable-use',
+    label: '공평한 사용',
+    source: 'Universal Design',
+    rules: ['html:image-alt-missing', 'html:control-label-missing', 'security:'],
+    pass: '장애나 환경에 따라 이용 방식이 분리되지 않습니다.',
+    action: '이미지 설명, 입력 이름, 개인정보 보호 안내를 같은 화면 흐름 안에 제공합니다.'
+  },
+  {
+    id: 'flexibility',
+    label: '유연한 사용',
+    source: 'Universal Design',
+    rules: ['html:vague-link-text', 'html:control-label-missing'],
+    pass: '마우스, 키보드, 보조기기 사용자 모두 같은 과업을 수행할 수 있습니다.',
+    action: '링크 목적과 입력 라벨을 명확히 하여 사용자가 원하는 방식으로 탐색하게 합니다.'
+  },
+  {
+    id: 'simple-intuitive',
+    label: '단순하고 직관적인 이해',
+    source: 'Universal Design',
+    rules: ['plain-language:', 'html:heading-level-skip'],
+    pass: '경험, 언어 능력, 집중 상태와 관계없이 흐름을 이해하기 쉽습니다.',
+    action: '어려운 행정 용어를 풀고 제목 구조를 순서대로 정리합니다.'
+  },
+  {
+    id: 'perceptible-information',
+    label: '인지 가능한 정보',
+    source: 'Universal Design / WCAG',
+    rules: ['visual:contrast-aa', 'html:image-alt-missing'],
+    pass: '시각 정보가 텍스트·대비·보조기술을 통해 충분히 전달됩니다.',
+    action: '색 대비를 높이고 비텍스트 정보에는 동등한 대체 텍스트를 제공합니다.'
+  },
+  {
+    id: 'tolerance-for-error',
+    label: '오류 허용',
+    source: 'Universal Design',
+    rules: ['security:', 'html:control-label-missing'],
+    pass: '실수하거나 위험한 행동을 하기 전에 의미 있는 단서가 제공됩니다.',
+    action: '폼 제출 보안, 입력 목적, 제출 전 확인 안내를 분명히 합니다.'
+  },
+  {
+    id: 'low-effort',
+    label: '적은 신체·인지 부담',
+    source: 'Universal Design / UDL',
+    rules: ['plain-language:long-sentence', 'html:vague-link-text'],
+    pass: '반복 읽기나 추측 없이 핵심 행동을 빠르게 찾을 수 있습니다.',
+    action: '긴 문장을 나누고 버튼·링크 이름에 사용자의 다음 행동을 드러냅니다.'
+  },
+  {
+    id: 'multiple-means',
+    label: '다양한 표현과 행동 방식',
+    source: 'UDL',
+    rules: ['plain-language:', 'html:image-alt-missing', 'html:heading-level-skip'],
+    pass: '텍스트, 구조, 시각 정보가 서로 보완되어 여러 방식으로 이해할 수 있습니다.',
+    action: '쉬운 문안, 구조화된 제목, 이미지 설명을 함께 제공해 이해 경로를 늘립니다.'
+  }
+];
+
 export function analyzeText(text = '') {
   const normalized = text.trim();
   const findings = [];
@@ -189,9 +248,31 @@ export function analyzeAll({ text = '', html = '', foreground = '#111827', backg
   return {
     sections,
     findings,
+    universalDesign: analyzeUniversalDesign(findings),
     score: scoreFindings(findings),
     generatedAt: new Date().toISOString()
   };
+}
+
+export function analyzeUniversalDesign(findings = []) {
+  return UNIVERSAL_DESIGN_PRINCIPLES.map((principle) => {
+    const matched = findings.filter((finding) => {
+      return principle.rules.some((rule) => finding.ruleId?.startsWith(rule) || finding.ruleId?.includes(rule));
+    });
+    const highCount = matched.filter((finding) => finding.severity === 'high').length;
+    const status = highCount > 0 ? 'needs-work' : matched.length > 0 ? 'watch' : 'ok';
+
+    return {
+      ...principle,
+      status,
+      findingCount: matched.length,
+      evidence: matched.slice(0, 3).map((finding) => finding.title),
+      summary: status === 'ok'
+        ? principle.pass
+        : `${matched.length}개의 관련 장벽이 있어 보완이 필요합니다.`,
+      recommendation: status === 'ok' ? '현재 구조를 유지하면서 실제 사용자 테스트로 확인하세요.' : principle.action
+    };
+  });
 }
 
 export function createImprovementPlan({ text = '', html = '', foreground = '#111827', background = '#ffffff' } = {}) {

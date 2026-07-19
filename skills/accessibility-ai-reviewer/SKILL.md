@@ -24,7 +24,9 @@ When the input is a website, inspect both the visible screen and the HTML struct
 2. Check plain Korean: long sentences, administrative wording, difficult terms, missing action steps, and unclear deadlines.
 3. Check accessibility: alt text, heading order, form labels, link purpose, keyboard flow, focus visibility, contrast, table structure, captions, and document reading order.
 4. Check safety and trust: HTTP links, insecure forms, unnecessary personal data, unclear consent, file downloads, and phishing-like wording.
-5. Produce fixes with evidence. Do not only say “improve accessibility”; show what changes.
+5. Reframe the findings with universal design principles: equitable use, flexibility, simple and intuitive use, perceptible information, tolerance for error, low effort, and enough size/space.
+6. For education or public instructions, also use UDL: multiple means of engagement, representation, and action/expression.
+7. Produce fixes with evidence. Do not only say “improve accessibility”; show what changes.
 
 ## Output Format
 
@@ -43,6 +45,14 @@ Return a concise structured report in Korean:
     }
   ],
   "risks": ["남은 위험 또는 검증 필요 항목"],
+  "universal_design": [
+    {
+      "principle": "공평한 사용",
+      "status": "개선 필요",
+      "reason": "영향받는 사용자와 장벽",
+      "action": "우선 적용할 개선"
+    }
+  ],
   "rewritten_text": "사용자가 바로 붙여넣을 수 있는 쉬운 표현 또는 개선 문안"
 }
 ```
@@ -60,4 +70,5 @@ Be explicit when a box is approximate because only a screenshot or partial HTML 
 - Prefer concrete before/after examples.
 - Use simple Korean in the rewritten text.
 - Prioritize high-impact fixes first: blocked forms, missing labels, missing alt text, unreadable contrast, unclear application steps, and privacy risks.
+- Keep universal design advice practical: connect each principle to a visible barrier or a concrete document change.
 - Do not invent content that the source does not support. Mark unknowns as `검증 필요`.

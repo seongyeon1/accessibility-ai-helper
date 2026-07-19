@@ -79,6 +79,7 @@ test('buildReviewPrompt includes required JSON fields and file context', () => {
 
   assert.match(prompt, /"summary"/);
   assert.match(prompt, /"improvements"/);
+  assert.match(prompt, /"universal_design"/);
   assert.match(prompt, /"risks"/);
   assert.match(prompt, /"rewritten_text"/);
   assert.match(prompt, /guide\.hwp/);

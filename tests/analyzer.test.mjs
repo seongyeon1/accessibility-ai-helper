@@ -5,6 +5,7 @@ import {
   analyzeAll,
   analyzeContrast,
   analyzeHtml,
+  analyzeUniversalDesign,
   buildChangeHighlights,
   analyzeText,
   createImprovementPlan,
@@ -70,7 +71,23 @@ test('analyzeAll combines text, html, and contrast checks into one report', () =
 
   assert.equal(report.sections.length, 3);
   assert.ok(report.findings.length >= 3);
+  assert.equal(report.universalDesign.length, 7);
+  assert.ok(report.universalDesign.some((principle) => principle.status === 'needs-work'));
   assert.ok(report.score < 100);
+});
+
+test('analyzeUniversalDesign maps findings to inclusive design principles', () => {
+  const principles = analyzeUniversalDesign([
+    { ruleId: 'plain-language:long-sentence', severity: 'high', title: '문장이 너무 깁니다' },
+    { ruleId: 'html:image-alt-missing', severity: 'high', title: '이미지 대체 텍스트가 없습니다' }
+  ]);
+
+  const simple = principles.find((principle) => principle.id === 'simple-intuitive');
+  const perceptible = principles.find((principle) => principle.id === 'perceptible-information');
+
+  assert.equal(simple.status, 'needs-work');
+  assert.equal(perceptible.status, 'needs-work');
+  assert.ok(simple.recommendation.includes('어려운 행정 용어'));
 });
 
 test('createImprovementPlan rewrites difficult text and accessible HTML for comparison', () => {
