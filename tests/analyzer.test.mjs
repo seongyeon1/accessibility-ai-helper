@@ -79,7 +79,8 @@ test('analyzeAll combines text, html, and contrast checks into one report', () =
 test('analyzeUniversalDesign maps findings to inclusive design principles', () => {
   const principles = analyzeUniversalDesign([
     { ruleId: 'plain-language:long-sentence', severity: 'high', title: '문장이 너무 깁니다' },
-    { ruleId: 'html:image-alt-missing', severity: 'high', title: '이미지 대체 텍스트가 없습니다' }
+    { ruleId: 'html:image-alt-missing', severity: 'high', title: '이미지 대체 텍스트가 없습니다' },
+    { ruleId: 'document:text-extraction-low', severity: 'medium', title: '문서 텍스트를 자동으로 읽지 못했습니다' }
   ]);
 
   const simple = principles.find((principle) => principle.id === 'simple-intuitive');
@@ -87,6 +88,7 @@ test('analyzeUniversalDesign maps findings to inclusive design principles', () =
 
   assert.equal(simple.status, 'needs-work');
   assert.equal(perceptible.status, 'needs-work');
+  assert.ok(perceptible.evidence.includes('문서 텍스트를 자동으로 읽지 못했습니다'));
   assert.ok(simple.recommendation.includes('어려운 행정 용어'));
 });
 

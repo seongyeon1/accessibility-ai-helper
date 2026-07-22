@@ -6,13 +6,14 @@ import { tmpdir } from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
-import { analyzeAll, createImprovementPlan } from './analyzer.js';
+import { analyzeAll, analyzeUniversalDesign, createImprovementPlan, scoreFindings } from './analyzer.js';
 import {
   buildAnthropicReviewRequest,
   buildOpenAIReviewRequest,
   buildReviewPrompt,
   detectDocumentKind,
   extractDocumentText,
+  filenameFromUrl,
   summarizeSecurityIssues
 } from './ingest.js';
 
@@ -69,12 +70,46 @@ async function handleAnalyzeUrl(url, request, response) {
     return;
   }
 
-  const htmlResponse = await fetch(target, {
-    headers: {
-      'user-agent': 'AccessibilityAIHelper/0.2 (+https://github.com/seongyeon1/accessibility-ai-helper)'
-    },
-    redirect: 'follow'
-  });
+  let htmlResponse;
+  try {
+    htmlResponse = await fetch(target, {
+      headers: {
+        'user-agent': 'AccessibilityAIHelper/0.2 (+https://github.com/seongyeon1/accessibility-ai-helper)'
+      },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(Number(process.env.URL_FETCH_TIMEOUT_MS || 30000))
+    });
+  } catch (error) {
+    sendJson(response, 504, {
+      error: error.name === 'TimeoutError' || error.name === 'AbortError'
+        ? 'URL 응답이 너무 오래 걸립니다. 파일을 내려받아 업로드하거나 잠시 후 다시 시도하세요.'
+        : `URL을 가져오지 못했습니다: ${error.message}`
+    });
+    return;
+  }
+
+  const mimeType = normalizeContentType(htmlResponse.headers.get('content-type') || '');
+  const filename = filenameFromResponse(target, htmlResponse.headers.get('content-disposition') || '');
+  const kind = detectDocumentKind({ url: htmlResponse.url || target, filename, mimeType });
+
+  if (kind !== 'website' && kind !== 'html') {
+    const buffer = Buffer.from(await htmlResponse.arrayBuffer());
+    const result = analyzeDocumentBuffer({
+      buffer,
+      kind,
+      filename,
+      mimeType
+    });
+
+    sendJson(response, 200, {
+      ...result,
+      source: target,
+      status: htmlResponse.status,
+      finalUrl: htmlResponse.url,
+      remote: true
+    });
+    return;
+  }
 
   const html = await htmlResponse.text();
   const text = htmlToReadableText(html);
@@ -104,15 +139,27 @@ async function handleAnalyzeFile(request, response) {
   const base64 = body.base64 || '';
   const buffer = Buffer.from(base64, 'base64');
   const kind = detectDocumentKind({ filename, mimeType });
+  const result = analyzeDocumentBuffer({
+    buffer,
+    kind,
+    filename,
+    mimeType
+  });
+
+  sendJson(response, 200, result);
+}
+
+function analyzeDocumentBuffer({ buffer, kind, filename, mimeType }) {
+  const base64 = buffer.toString('base64');
   const extraction = extractDocumentText({ buffer, kind });
   const html = kind === 'html' ? buffer.toString('utf8') : '';
   const imageDataUrl = kind === 'image' ? `data:${mimeType};base64,${base64}` : '';
-  const report = analyzeAll({
+  const report = withExtractionFindings(analyzeAll({
     text: extraction.text,
     html,
     foreground: '#111827',
     background: '#ffffff'
-  });
+  }), extraction, kind);
   const improvementPlan = createImprovementPlan({
     text: extraction.text,
     html,
@@ -121,18 +168,58 @@ async function handleAnalyzeFile(request, response) {
   });
   const securityIssues = html ? summarizeSecurityIssues(html) : [];
 
-  sendJson(response, 200, {
+  return {
     kind,
     filename,
     mimeType,
     size: buffer.length,
     extraction,
+    file: {
+      filename,
+      mimeType,
+      base64
+    },
     imageDataUrl,
     report,
     improvementPlan,
     securityIssues,
     aiRecommended: ['pdf', 'docx', 'hwp', 'image', 'binary'].includes(kind)
-  });
+  };
+}
+
+function withExtractionFindings(report, extraction, kind) {
+  if (!['pdf', 'docx', 'hwp', 'image', 'binary'].includes(kind) || extraction.text) {
+    return report;
+  }
+
+  const finding = {
+    id: `document:text-extraction-low:${kind}`,
+    ruleId: 'document:text-extraction-low',
+    title: '문서 텍스트를 자동으로 읽지 못했습니다',
+    severity: 'medium',
+    impact: ['시각장애인', '스크린리더 사용자', '인지 접근성 지원이 필요한 사용자'],
+    location: kind.toUpperCase(),
+    evidence: `${extraction.method} / ${extraction.confidence}`,
+    suggestion: 'OCR 또는 AI 심화 분석으로 문서 내용을 추출한 뒤 쉬운 말, 읽기 순서, 이미지 대체 설명을 점검하세요.'
+  };
+  const findings = [...report.findings, finding];
+  const sections = [
+    ...report.sections,
+    {
+      category: 'document',
+      label: '문서 추출 점검',
+      summary: '자동 텍스트 추출이 어려워 AI/OCR 기반 심화 분석이 필요합니다.',
+      findings: [finding]
+    }
+  ];
+
+  return {
+    ...report,
+    sections,
+    findings,
+    universalDesign: analyzeUniversalDesign(findings),
+    score: scoreFindings(findings)
+  };
 }
 
 async function handleAiReview(request, response) {
@@ -331,6 +418,20 @@ function getProviderToken(request, provider) {
   }
   if (request.headers['x-codex-auth-token']) return String(request.headers['x-codex-auth-token']);
   return process.env.CODEX_AUTH_TOKEN || process.env.OPENAI_API_KEY || '';
+}
+
+function normalizeContentType(value = '') {
+  return value.split(';')[0].trim().toLowerCase() || 'application/octet-stream';
+}
+
+function filenameFromResponse(url, contentDisposition = '') {
+  const utf8Match = contentDisposition.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+  if (utf8Match) return decodeURIComponent(utf8Match[1].trim().replace(/^"|"$/g, ''));
+
+  const filenameMatch = contentDisposition.match(/filename\s*=\s*("?)([^";]+)\1/i);
+  if (filenameMatch) return filenameMatch[2].trim();
+
+  return filenameFromUrl(url);
 }
 
 function htmlToReadableText(html) {

@@ -2,9 +2,7 @@ const TEXTUAL_EXTENSIONS = new Set(['txt', 'md', 'csv', 'tsv', 'json', 'xml']);
 const IMAGE_MIME_RE = /^image\/(png|jpe?g|webp|gif|bmp|svg\+xml)$/i;
 
 export function detectDocumentKind({ url = '', filename = '', mimeType = '' } = {}) {
-  if (url) return 'website';
-
-  const lowerName = filename.toLowerCase();
+  const lowerName = (filename || filenameFromUrl(url)).toLowerCase();
   const extension = lowerName.includes('.') ? lowerName.split('.').pop() : '';
   const lowerMime = mimeType.toLowerCase();
 
@@ -14,7 +12,18 @@ export function detectDocumentKind({ url = '', filename = '', mimeType = '' } = 
   if (lowerMime.includes('wordprocessingml') || extension === 'docx') return 'docx';
   if (extension === 'hwp' || extension === 'hwpx') return 'hwp';
   if (TEXTUAL_EXTENSIONS.has(extension) || lowerMime.startsWith('text/')) return 'text';
+  if (url) return 'website';
   return 'binary';
+}
+
+export function filenameFromUrl(url = '') {
+  try {
+    const parsed = new URL(url);
+    const name = decodeURIComponent(parsed.pathname.split('/').filter(Boolean).pop() || '');
+    return name || 'remote-resource';
+  } catch {
+    return 'remote-resource';
+  }
 }
 
 export function extractDocumentText({ buffer, kind }) {
@@ -209,8 +218,7 @@ function extractPdfText(buffer) {
   const raw = buffer.toString('utf8');
   const literalStrings = [...raw.matchAll(/\(([^()]{2,500})\)\s*Tj/g)]
     .map((match) => decodePdfLiteral(match[1]));
-  const visible = literalStrings.join(' ') || printableAsciiAndKorean(buffer);
-  return normalizeWhitespace(visible).slice(0, 40000);
+  return normalizeWhitespace(literalStrings.join(' ')).slice(0, 40000);
 }
 
 function decodePdfLiteral(value) {

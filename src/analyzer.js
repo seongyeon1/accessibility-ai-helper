@@ -44,7 +44,7 @@ const UNIVERSAL_DESIGN_PRINCIPLES = [
     id: 'perceptible-information',
     label: '인지 가능한 정보',
     source: 'Universal Design / WCAG',
-    rules: ['visual:contrast-aa', 'html:image-alt-missing'],
+    rules: ['visual:contrast-aa', 'html:image-alt-missing', 'document:'],
     pass: '시각 정보가 텍스트·대비·보조기술을 통해 충분히 전달됩니다.',
     action: '색 대비를 높이고 비텍스트 정보에는 동등한 대체 텍스트를 제공합니다.'
   },
@@ -68,7 +68,7 @@ const UNIVERSAL_DESIGN_PRINCIPLES = [
     id: 'multiple-means',
     label: '다양한 표현과 행동 방식',
     source: 'UDL',
-    rules: ['plain-language:', 'html:image-alt-missing', 'html:heading-level-skip'],
+    rules: ['plain-language:', 'html:image-alt-missing', 'html:heading-level-skip', 'document:'],
     pass: '텍스트, 구조, 시각 정보가 서로 보완되어 여러 방식으로 이해할 수 있습니다.',
     action: '쉬운 문안, 구조화된 제목, 이미지 설명을 함께 제공해 이해 경로를 늘립니다.'
   }
@@ -352,6 +352,7 @@ export function scoreFindings(findings = []) {
 
 function targetFromRule(ruleId = '') {
   if (ruleId.includes('image-alt')) return 'image';
+  if (ruleId.includes('document:')) return 'text';
   if (ruleId.includes('heading')) return 'heading';
   if (ruleId.includes('link')) return 'link';
   if (ruleId.includes('control')) return 'form';

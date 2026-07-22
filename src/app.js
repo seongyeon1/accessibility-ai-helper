@@ -144,20 +144,27 @@ async function analyzeUrl() {
     return;
   }
 
-  await withStatus('홈페이지 HTML을 가져오고 화면을 캡처하는 중입니다...', async () => {
+  await withStatus('URL의 자료 형식을 확인하고 분석하는 중입니다...', async () => {
     const result = await fetchJson(`/api/analyze-url?url=${encodeURIComponent(url)}`);
+    const isWebsite = result.kind === 'website';
     state.source = {
-      kind: 'website',
-      label: result.finalUrl || url,
-      text: result.text || '',
-      html: result.html || '',
-      file: null,
-      imageDataUrl: result.screenshot || ''
+      kind: result.kind || 'website',
+      label: result.filename || result.finalUrl || url,
+      text: result.text || result.extraction?.text || '',
+      html: isWebsite ? result.html || '' : '',
+      file: result.file || null,
+      imageDataUrl: result.screenshot || result.imageDataUrl || ''
     };
     applyAnalysis({
       ...result,
-      sourceLabel: result.finalUrl || url
+      sourceLabel: isWebsite
+        ? result.finalUrl || url
+        : `${result.filename || result.finalUrl || url} (${kindLabel(result.kind)})`
     });
+
+    if (result.aiRecommended) {
+      setStatus(`${kindLabel(result.kind)} URL 분석 완료. 이 자료는 AI 심화 분석을 함께 쓰면 더 정확합니다.`);
+    }
   });
 }
 

@@ -12,6 +12,8 @@ import {
 
 test('detectDocumentKind recognizes website and common upload types', () => {
   assert.equal(detectDocumentKind({ url: 'https://example.com' }), 'website');
+  assert.equal(detectDocumentKind({ url: 'https://example.com/notice.pdf' }), 'pdf');
+  assert.equal(detectDocumentKind({ url: 'https://example.com/photo.png' }), 'image');
   assert.equal(detectDocumentKind({ filename: 'notice.pdf', mimeType: 'application/pdf' }), 'pdf');
   assert.equal(detectDocumentKind({ filename: 'photo.png', mimeType: 'image/png' }), 'image');
   assert.equal(detectDocumentKind({ filename: 'plan.hwp', mimeType: '' }), 'hwp');
@@ -21,9 +23,12 @@ test('detectDocumentKind recognizes website and common upload types', () => {
 test('extractDocumentText pulls readable text from html and pdf-like buffers', () => {
   const html = Buffer.from('<main><h1>안내</h1><p>취약계층 신청 안내</p><script>alert(1)</script></main>');
   const pdfLike = Buffer.from('%PDF-1.7\n(복지급여 신청 안내) Tj\n(소득증빙자료 제출) Tj');
+  const compressedPdfLike = Buffer.from('%PDF-1.7\nstream\nx\\x9c\\x00binary-ish-data\nendstream');
 
   assert.equal(extractDocumentText({ buffer: html, kind: 'html' }).text, '안내 취약계층 신청 안내');
   assert.ok(extractDocumentText({ buffer: pdfLike, kind: 'pdf' }).text.includes('복지급여 신청 안내'));
+  assert.equal(extractDocumentText({ buffer: compressedPdfLike, kind: 'pdf' }).text, '');
+  assert.equal(extractDocumentText({ buffer: compressedPdfLike, kind: 'pdf' }).confidence, 'low');
 });
 
 test('summarizeSecurityIssues flags insecure links and risky forms', () => {
